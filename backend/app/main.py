@@ -12,6 +12,7 @@ from . import models  # noqa: F401  确保建表前模型已注册
 from .db import DATA_DIR, SessionLocal, engine
 from .routes import register_routes
 from .seed import seed_if_empty
+from .views import get_session_detail, list_sessions
 
 app = FastAPI(title="agent-duet")
 

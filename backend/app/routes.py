@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from .db import SessionLocal
 from .models import Agent, Session, Turn
+from .views import get_session_detail, list_sessions
 from .runner import DEFAULT_INTENT, build_command, execute_turn
 
 
@@ -71,6 +72,17 @@ def register_routes(app):
             db.add(s)
             await db.commit()
             return {"id": s.id, "title": s.title, "mode": s.mode}
+
+    @app.get("/api/sessions")
+    async def get_sessions(q: str | None = None):
+        return await list_sessions(q)
+
+    @app.get("/api/sessions/{sid}")
+    async def get_session(sid: int):
+        detail = await get_session_detail(sid)
+        if not detail:
+            raise HTTPException(404)
+        return detail
 
     @app.patch("/api/sessions/{sid}")
     async def patch_session(sid: int, body: SessionPatch):
