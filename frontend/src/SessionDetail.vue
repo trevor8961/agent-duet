@@ -183,14 +183,43 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
-.md :deep(table) { border-collapse: collapse; margin: 8px 0; }
-.md :deep(th), .md :deep(td) { border: 1px solid #3a3f47; padding: 4px 10px; font-size: 13px; }
-.md :deep(th) { background: #23272e; }
-.md :deep(code) { background: #23272e; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
-.md :deep(pre code) { display: block; padding: 10px; overflow-x: auto; }
-.md :deep(blockquote) { border-left: 3px solid #3a4a5c; margin: 6px 0; padding: 2px 12px; color: #9aa; }
-.md :deep(h1), .md :deep(h2), .md :deep(h3) { margin: 8px 0 4px; }
-.md :deep(p) { margin: 6px 0; }
+/* ---- claude-like Markdown 移植（色板取自 Xv-Bowen/claude-like-typora-theme）----
+   暗色舞台 + 米色纸卡：agent 回复是一张"纸" */
+.bubble.agent.md {
+  --paper-bg: #f9f9f7;
+  --paper-surface: #f4f4f2;
+  --paper-text: #2d2d2b;
+  --paper-muted: #6b6b67;
+  --paper-border: rgb(45 45 43 / 14%);
+  --accent: #cc7d5e;
+  --accent-text: #a95639;
+  background: var(--paper-bg);
+  color: var(--paper-text);
+  border: 0.5px solid var(--paper-border);
+  border-radius: 0.75rem;
+  padding: 4px 18px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.md :deep(h1) { font-size: 1.4rem; line-height: 2rem; font-weight: 700; margin: .9rem 0 .15rem; padding-bottom: .3rem; border-bottom: 1px solid var(--paper-border); }
+.md :deep(h2) { font-size: 1.2rem; line-height: 1.75rem; font-weight: 700; margin: .8rem 0 .15rem; }
+.md :deep(h3) { font-size: 1.05rem; line-height: 1.6rem; font-weight: 700; margin: .65rem 0 .15rem; }
+.md :deep(h4), .md :deep(h5), .md :deep(h6) { font-size: .95rem; font-weight: 700; margin: .5rem 0 .1rem; }
+.md :deep(p) { margin: .5rem 0; }
+.md :deep(a) { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+.md :deep(strong) { font-weight: 700; color: #1f1f1d; }
+.md :deep(table) { border-collapse: collapse; width: 100%; margin: .75rem 0; font-variant-numeric: tabular-nums; font-size: .875rem; }
+.md :deep(th), .md :deep(td) { border: 1px solid var(--paper-border); padding: .4rem .7rem; text-align: left; }
+.md :deep(th) { background: #ecece9; font-weight: 700; }
+.md :deep(tr:nth-child(even) td) { background: rgb(45 45 43 / 3%); }
+.md :deep(code) { background: var(--paper-surface); border: 0.5px solid var(--paper-border); padding: .1rem .35rem; border-radius: .3rem; font-size: .85em; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.md :deep(pre) { background: var(--paper-surface); border: 0.5px solid var(--paper-border); border-radius: .5rem; padding: .875rem; margin: .75rem 0; overflow-x: auto; }
+.md :deep(pre code) { background: none; border: none; padding: 0; font-size: .85rem; }
+.md :deep(blockquote) { border-left: 3px solid var(--accent); background: rgb(204 125 94 / 8%); margin: .6rem 0; padding: .3rem .9rem; color: var(--paper-muted); border-radius: 0 .35rem .35rem 0; }
+.md :deep(hr) { border: none; border-top: 1px solid var(--paper-border); margin: 1rem 0; }
+.md :deep(ul), .md :deep(ol) { padding-left: 1.4rem; margin: .5rem 0; }
+.md :deep(li) { margin: .25rem 0; }
+.md :deep(img) { max-width: 100%; border-radius: .5rem; }
 .thinking { align-self: flex-start; font-size: 13px; color: #8a7f6f; max-width: 90%; }
 .thinking summary { cursor: pointer; color: #6f6a5f; }
 .thinking pre { margin: 6px 0 0; padding: 8px; background: #17150f; border-radius: 8px; white-space: pre-wrap; color: #a89c85; }
