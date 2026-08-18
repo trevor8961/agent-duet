@@ -150,15 +150,15 @@ watch(() => props.detail?.messages?.length, loadGit);
 </template>
 
 <style scoped>
-.ctx { flex-shrink: 0; border-left: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.ctx { flex-shrink: 0; border-left: 1px solid var(--border); padding: 12px 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 
 /* 块状组织：标题栏可折叠，折叠状态持久化 */
 .block { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden; }
-.block header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: .5px; }
+.block header { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: .5px; }
 .block header:hover { color: var(--text); }
 .block header i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; }
 .block[data-open="true"] header i { transform: rotate(180deg); }
-.block .body { padding: 4px 12px 10px; display: flex; flex-direction: column; gap: 3px; }
+.block .body { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 3px; }
 
 .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-dim); align-items: center; }
 .kv span:first-child { color: var(--text-faint); }
@@ -167,7 +167,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
 
-.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px 12px 10px; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 14px 12px; }
 .modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; }
 .modes button.active { border-color: var(--accent); background: var(--surface-2); color: var(--text); font-weight: 700; }
 
