@@ -13,6 +13,18 @@ const MODES = [
 const saving = ref(false);
 const git = ref(null);
 
+// 块折叠状态持久化（记住用户想看哪些块）
+const BLOCKS = ["mode", "info", "git", "turns", "activity"];
+const openBlocks = ref(
+  new Set(JSON.parse(localStorage.getItem("ad-ctx-blocks") || '["mode","info","git","turns"]'))
+);
+function toggleBlock(b) {
+  const next = new Set(openBlocks.value);
+  next.has(b) ? next.delete(b) : next.add(b);
+  openBlocks.value = next;
+  localStorage.setItem("ad-ctx-blocks", JSON.stringify([...next]));
+}
+
 async function loadGit() {
   try {
     git.value = await (await fetch(`/api/sessions/${props.id}/git`)).json();
@@ -48,75 +60,102 @@ async function switchMode(mode) {
   saving.value = false;
 }
 
-defineExpose({});
+onMounted(loadGit);
+watch(() => props.detail?.messages?.length, loadGit);
 </script>
 
 <template>
   <aside class="ctx" v-if="detail">
-    <div class="block">
-      <div class="title">档案</div>
-      <div class="kv"><span>目录</span><code>{{ detail.cwd }}</code></div>
-      <div class="kv"><span>状态</span><b :data-status="detail.status">{{ detail.status }}</b></div>
-      <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? "已关联" : "未关联" }}</span></div>
-    </div>
-
-    <div class="block">
-      <div class="title">工作区</div>
-      <template v-if="git?.is_repo">
-        <div class="kv"><span>分支</span><b class="branch">{{ git.branch }}</b></div>
-        <div class="kv"><span>变更</span><span>{{ git.changes.length }} 个文件</span></div>
-        <div v-if="git.changes.length" class="changes">
-          <div v-for="c in git.changes.slice(0, 8)" :key="c.path" class="chg" :data-st="c.status">
-            <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
-          </div>
-          <div v-if="git.changes.length > 8" class="more">…还有 {{ git.changes.length - 8 }} 个</div>
-        </div>
-      </template>
-      <div v-else class="none">非 git 仓库</div>
-    </div>
-
-    <div class="block">
-      <div class="title">模式</div>
-      <div class="modes">
+    <!-- 模式：可操作，置顶 -->
+    <section class="block" :data-open="openBlocks.has('mode')">
+      <header @click="toggleBlock('mode')"><span>模式</span><i></i></header>
+      <div v-show="openBlocks.has('mode')" class="modes">
         <button v-for="m in MODES" :key="m.value" :class="{ active: detail.mode === m.value }"
           :disabled="saving" @click="switchMode(m.value)">{{ m.label }}</button>
       </div>
-    </div>
+    </section>
 
-    <div class="block grow">
-      <div class="title">节目单（{{ detail.turns.length }} 轮）</div>
-      <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
-        <span class="intent">{{ t.intent }}</span>
-        <span class="t-status">{{ t.status }}</span>
-        <span class="t-meta" v-if="t.duration_ms">{{ (t.duration_ms / 1000).toFixed(1) }}s</span>
-        <span class="t-meta" v-if="t.total_cost_usd">${{ t.total_cost_usd.toFixed(2) }}</span>
+    <!-- 基本信息 -->
+    <section class="block" :data-open="openBlocks.has('info')">
+      <header @click="toggleBlock('info')"><span>基本信息</span><i></i></header>
+      <div v-show="openBlocks.has('info')" class="body">
+        <div class="kv"><span>话题</span><b>{{ detail.title }}</b></div>
+        <div class="kv"><span>目录</span><code :title="detail.cwd">{{ detail.cwd }}</code></div>
+        <div class="kv"><span>状态</span><b :data-status="detail.status">{{ detail.status }}</b></div>
+        <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? "已关联" : "未关联" }}</span></div>
       </div>
-      <div v-if="!detail.turns.length" class="none">还没有轮次</div>
-    </div>
+    </section>
 
-    <div class="block">
-      <div class="title">活动（{{ activity(detail).toolCount }} 次工具）</div>
-      <div v-if="activity(detail).files.length" class="files">
-        <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
+    <!-- 工作区 -->
+    <section class="block" :data-open="openBlocks.has('git')">
+      <header @click="toggleBlock('git')"><span>工作区</span><i></i></header>
+      <div v-show="openBlocks.has('git')" class="body">
+        <template v-if="git?.is_repo">
+          <div class="kv"><span>分支</span><b class="branch">{{ git.branch }}</b></div>
+          <div class="kv"><span>变更</span><span>{{ git.changes.length }} 个文件</span></div>
+          <div v-if="git.changes.length" class="changes">
+            <div v-for="c in git.changes.slice(0, 8)" :key="c.path" class="chg" :data-st="c.status">
+              <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
+            </div>
+            <div v-if="git.changes.length > 8" class="more">…还有 {{ git.changes.length - 8 }} 个</div>
+          </div>
+        </template>
+        <div v-else class="none">非 git 仓库</div>
       </div>
-      <div class="cmds">
-        <div v-for="(c, i) in activity(detail).commands" :key="i" class="cmd">$ {{ c.cmd }}</div>
+    </section>
+
+    <!-- 节目单 -->
+    <section class="block" :data-open="openBlocks.has('turns')">
+      <header @click="toggleBlock('turns')"><span>节目单 · {{ detail.turns.length }} 轮</span><i></i></header>
+      <div v-show="openBlocks.has('turns')" class="body">
+        <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
+          <span class="intent">{{ t.intent }}</span>
+          <span class="t-status">{{ t.status }}</span>
+          <span class="t-meta" v-if="t.duration_ms">{{ (t.duration_ms / 1000).toFixed(1) }}s</span>
+          <span class="t-meta" v-if="t.total_cost_usd">${{ t.total_cost_usd.toFixed(2) }}</span>
+        </div>
+        <div v-if="!detail.turns.length" class="none">还没有轮次</div>
       </div>
-      <div v-if="!activity(detail).toolCount" class="none">尚未动过手</div>
-    </div>
+    </section>
+
+    <!-- 活动 -->
+    <section class="block" :data-open="openBlocks.has('activity')">
+      <header @click="toggleBlock('activity')"><span>活动 · {{ activity(detail).toolCount }} 次工具</span><i></i></header>
+      <div v-show="openBlocks.has('activity')" class="body">
+        <div v-if="activity(detail).files.length" class="files">
+          <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
+        </div>
+        <div class="cmds">
+          <div v-for="(c, i) in activity(detail).commands" :key="i" class="cmd">$ {{ c.cmd }}</div>
+        </div>
+        <div v-if="!activity(detail).toolCount" class="none">尚未动过手</div>
+      </div>
+    </section>
   </aside>
 </template>
 
 <style scoped>
-.ctx { width: 260px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
-.title { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-.block.grow { flex: 1; }
-.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: #aaa; }
+.ctx { flex-shrink: 0; border-left: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+
+/* 块状组织：标题栏可折叠，折叠状态持久化 */
+.block { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.block header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: .5px; }
+.block header:hover { color: var(--text); }
+.block header i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; }
+.block[data-open="true"] header i { transform: rotate(180deg); }
+.block .body { padding: 4px 12px 10px; display: flex; flex-direction: column; gap: 3px; }
+
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-dim); align-items: center; }
 .kv span:first-child { color: var(--text-faint); }
-.kv code { font-size: 11px; color: #8899aa; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv code { font-size: 11px; color: var(--text-dim); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv b[data-status="running"] { color: #d9a918; }
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
+
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px 12px 10px; }
+.modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; }
+.modes button.active { border-color: var(--accent); background: var(--surface-2); color: var(--text); font-weight: 700; }
+
 .branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -127,17 +166,16 @@ defineExpose({});
 .chg[data-st="??"] i { background: rgb(85 119 170 / 30%); color: #7a9ac9; }
 .chg[data-st="D"] i { background: rgb(197 68 68 / 25%); color: #c54444; }
 .more { color: var(--text-faint); font-size: 11px; }
-.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--hover); color: var(--text-dim); cursor: pointer; font-size: 12px; }
-.modes button.active { border-color: var(--accent); background: #1c3a5e; color: #fff; }
+
 .turn { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 6px; border-radius: 6px; }
 .turn:hover { background: var(--hover); }
 .intent { color: #b89a5e; }
 .t-status { color: var(--text-faint); font-size: 11px; }
 .t-meta { margin-left: auto; color: var(--text-faint); font-size: 11px; }
 .none { color: var(--text-faint); font-size: 12px; padding: 6px; }
+
 .files { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-.files code { background: #1e2430; padding: 1px 6px; border-radius: 4px; font-size: 11px; color: #8fb0d9; }
+.files code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 11px; color: var(--text-dim); }
 .cmds { display: flex; flex-direction: column; gap: 2px; }
 .cmd { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

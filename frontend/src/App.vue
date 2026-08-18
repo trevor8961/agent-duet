@@ -11,6 +11,27 @@ const agents = ref([]);
 const form = ref({ title: "", cwd: "", agent_id: null, mode: "guided" });
 const leftNav = ref(null);
 
+// 右栏宽度：可拖拽，持久化，上限为视口 1/3
+const ctxWidth = ref(Math.min(Number(localStorage.getItem("ad-ctx-width")) || 300, Math.floor(window.innerWidth / 3)));
+const dragging = ref(false);
+
+function startDrag(e) {
+  dragging.value = true;
+  const max = Math.floor(window.innerWidth / 3);
+  const onMove = (ev) => {
+    ctxWidth.value = Math.min(max, Math.max(240, window.innerWidth - ev.clientX));
+  };
+  const onUp = () => {
+    dragging.value = false;
+    localStorage.setItem("ad-ctx-width", String(ctxWidth.value));
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  e.preventDefault();
+}
+
 const MODES = [
   { value: "readonly", label: "只读" },
   { value: "plan", label: "计划" },
@@ -71,7 +92,10 @@ onMounted(async () => {
       </div>
     </main>
 
-    <ContextPanel v-if="currentId" :id="currentId" :detail="detail" />
+    <template v-if="currentId">
+      <div class="divider" :class="{ dragging }" @mousedown="startDrag" title="拖拽调整宽度"></div>
+      <ContextPanel :id="currentId" :detail="detail" :style="{ width: ctxWidth + 'px' }" />
+    </template>
 
     <div v-if="showCreate" class="modal" @click.self="showCreate = false">
       <div class="modal-box">
@@ -99,6 +123,8 @@ onMounted(async () => {
 
 <style scoped>
 .shell { display: flex; height: 100vh; overflow: hidden; }
+.divider { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; transition: background .15s; }
+.divider:hover, .divider.dragging { background: var(--accent); }
 .center { flex: 1; min-width: 0; display: flex; }
 .home { margin: auto; text-align: center; color: var(--text-faint); }
 .home h1 { color: var(--text); margin-bottom: 8px; }
