@@ -75,7 +75,7 @@ async function load() {
 function subscribe() {
   es?.close();
   es = new EventSource(`${API}/sessions/${props.id}/events`);
-  es.addEventListener("line", (ev) => {
+  es.addEventListener("line", async (ev) => {
     try {
       const e = JSON.parse(ev.data).data;
       const line = JSON.parse(e);
