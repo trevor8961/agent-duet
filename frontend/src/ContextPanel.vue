@@ -160,7 +160,9 @@ watch(() => props.detail?.messages?.length, loadGit);
 .block header i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; }
 .block[data-open="true"] header i { transform: rotate(180deg); }
 .block .body { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 3px; }
-.scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 4px; }
+.scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 4px;
+  mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%); }
 /* macOS 悬叠式滚动条平时不可见，用户无从知道可滚——常显细滚动条 */
 .scroll-list::-webkit-scrollbar, .changes::-webkit-scrollbar { width: 6px; }
 .scroll-list::-webkit-scrollbar-thumb, .changes::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
@@ -185,7 +187,9 @@ watch(() => props.detail?.messages?.length, loadGit);
 .chg-toggle:hover { color: var(--text); }
 .chg-toggle.dirty .tri { border-top-color: var(--accent); }
 .tri { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; flex-shrink: 0; }
-.changes { max-height: 22vh; overflow-y: auto; padding-bottom: 4px; }  /* branch/remote 固定两行，changes 占弹性区 */
+.changes { max-height: 22vh; overflow-y: auto; padding-bottom: 4px;
+  mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%); }
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
