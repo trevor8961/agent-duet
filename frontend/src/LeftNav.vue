@@ -10,16 +10,19 @@ const byCwd = ref([]); // 按 cwd 聚合
 const search = ref("");
 const theme = ref(getTheme());
 const lang = ref(i18n.lang);
-const showConfig = ref(false);
+const showTheme = ref(false);
+const showLang = ref(false);
 
 function pickTheme(t) {
   theme.value = t;
   setTheme(t);
+  showTheme.value = false; // 选择即收起
 }
 
 function pickLang(l) {
   lang.value = l;
   setLang(l);
+  showLang.value = false;
 }
 
 async function load() {
@@ -75,29 +78,35 @@ defineExpose({ load });
       </details>
     </div>
     <div class="config">
-      <button class="gear" @click="showConfig = !showConfig">⚙ {{ t("theme") }}：{{ t(theme) }} · {{ t("language") }}：{{ lang === "zh" ? "中文" : "English" }}</button>
-      <div v-if="showConfig" class="theme-pop">
-        <button v-for="th in ['light', 'dark', 'auto']" :key="th" :class="{ active: theme === th }" @click="pickTheme(th)">
-          {{ { light: "☀️", dark: "🌙", auto: "🖥" }[th] }} {{ t(th) }}
-        </button>
-        <div class="pop-sep"></div>
-        <button v-for="l in ['zh', 'en']" :key="l" :class="{ active: lang === l }" @click="pickLang(l)">
-          {{ l === "zh" ? "🀄 中文" : "🔤 English" }}
-        </button>
+      <div class="config-row">
+        <button class="gear" @click="showTheme = !showTheme; showLang = false">⚙ {{ t("theme") }}：{{ t(theme) }}</button>
+        <div v-if="showTheme" class="pop">
+          <button v-for="th in ['light', 'dark', 'auto']" :key="th" :class="{ active: theme === th }" @click="pickTheme(th)">
+            {{ { light: "☀️", dark: "🌙", auto: "🖥" }[th] }} {{ t(th) }}
+          </button>
+        </div>
+      </div>
+      <div class="config-row">
+        <button class="gear" @click="showLang = !showLang; showTheme = false">⚙ {{ t("language") }}：{{ lang === "zh" ? "中文" : "English" }}</button>
+        <div v-if="showLang" class="pop">
+          <button v-for="l in ['zh', 'en']" :key="l" :class="{ active: lang === l }" @click="pickLang(l)">
+            {{ l === "zh" ? "🀄 中文" : "🔤 English" }}
+          </button>
+        </div>
       </div>
     </div>
   </aside>
 </template>
 
 <style scoped>
-.config { position: relative; border-top: 1px solid var(--border); padding-top: 10px; }
+.config { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.config-row { position: relative; }
 .gear { width: 100%; text-align: left; padding: 7px 8px; border-radius: 6px; border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 12px; }
 .gear:hover { background: var(--hover); color: var(--text); }
-.theme-pop { position: absolute; bottom: 40px; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; z-index: 5; box-shadow: 0 4px 16px rgb(0 0 0 / 30%); }
-.theme-pop button { padding: 7px 8px; border: none; background: none; color: var(--text-dim); cursor: pointer; text-align: left; font-size: 13px; border-radius: 5px; }
-.theme-pop button:hover { background: var(--hover); }
-.theme-pop button.active { color: var(--text); font-weight: 700; }
-.pop-sep { height: 1px; background: var(--border); margin: 3px 0; }
+.pop { position: absolute; bottom: 36px; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; z-index: 5; box-shadow: 0 4px 16px rgb(0 0 0 / 30%); }
+.pop button { padding: 7px 8px; border: none; background: none; color: var(--text-dim); cursor: pointer; text-align: left; font-size: 13px; border-radius: 5px; }
+.pop button:hover { background: var(--hover); }
+.pop button.active { color: var(--text); font-weight: 700; }
 .nav { width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px 10px; gap: 12px; overflow-y: auto; }
 .brand { font-weight: 700; font-size: 15px; padding: 0 8px; letter-spacing: .3px; }
 .new { padding: 8px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; }
