@@ -92,16 +92,16 @@ onMounted(async () => {
 <style scoped>
 .shell { display: flex; height: 100vh; overflow: hidden; }
 .center { flex: 1; min-width: 0; display: flex; }
-.home { margin: auto; text-align: center; color: #777; }
-.home h1 { color: #ccc; margin-bottom: 8px; }
-.hint { font-size: 13px; color: #555; }
+.home { margin: auto; text-align: center; color: var(--text-faint); }
+.home h1 { color: var(--text); margin-bottom: 8px; }
+.hint { font-size: 13px; color: var(--text-faint); }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
-.modal-box { background: #181818; border: 1px solid #333; border-radius: 12px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 12px; }
+.modal-box { background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 12px; }
 .modal-box h2 { margin: 0 0 4px; font-size: 16px; }
-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #999; }
-label input, label select { padding: 8px; border-radius: 6px; border: 1px solid #333; background: #111; color: #eee; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-dim); }
+label input, label select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--panel); color: var(--text); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; }
-button { padding: 6px 14px; border-radius: 6px; border: 1px solid #333; background: #222; color: #ddd; cursor: pointer; }
-button.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button:disabled { opacity: .5; }
 </style>

@@ -86,26 +86,26 @@ defineExpose({});
 </template>
 
 <style scoped>
-.ctx { width: 260px; flex-shrink: 0; border-left: 1px solid #222; padding: 14px 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
-.title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.ctx { width: 260px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.title { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
 .block.grow { flex: 1; }
 .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: #aaa; }
-.kv span:first-child { color: #666; }
+.kv span:first-child { color: var(--text-faint); }
 .kv code { font-size: 11px; color: #8899aa; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv b[data-status="running"] { color: #d9a918; }
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
 .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.modes button { padding: 6px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #999; cursor: pointer; font-size: 12px; }
-.modes button.active { border-color: #2b6cb0; background: #1c3a5e; color: #fff; }
+.modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--hover); color: var(--text-dim); cursor: pointer; font-size: 12px; }
+.modes button.active { border-color: var(--accent); background: #1c3a5e; color: #fff; }
 .turn { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 6px; border-radius: 6px; }
-.turn:hover { background: #1a1a1a; }
+.turn:hover { background: var(--hover); }
 .intent { color: #b89a5e; }
-.t-status { color: #666; font-size: 11px; }
-.t-meta { margin-left: auto; color: #555; font-size: 11px; }
-.none { color: #555; font-size: 12px; padding: 6px; }
+.t-status { color: var(--text-faint); font-size: 11px; }
+.t-meta { margin-left: auto; color: var(--text-faint); font-size: 11px; }
+.none { color: var(--text-faint); font-size: 12px; padding: 6px; }
 .files { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .files code { background: #1e2430; padding: 1px 6px; border-radius: 4px; font-size: 11px; color: #8fb0d9; }
 .cmds { display: flex; flex-direction: column; gap: 2px; }
-.cmd { font-family: ui-monospace, monospace; font-size: 10px; color: #778; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -1,0 +1,35 @@
+/* 主题令牌：语义色唯一来源。组件禁止硬编码背景/文字色。
+   深=暗色舞台，浅=claude-like 米色系（与纸卡同族）。
+   刻意不随主题变：纸卡（主旋律）、思考块（低声部）——明暗是分声部语言 */
+
+:root[data-theme="dark"] {
+  --bg: #0d0d0d;
+  --panel: #111111;
+  --surface: #181818;
+  --surface-2: #1f1f1f;
+  --hover: #1a1a1a;
+  --border: #222222;
+  --border-2: #333333;
+  --text: #e6e6e6;
+  --text-dim: #999999;
+  --text-faint: #666666;
+  --accent: #2b6cb0;
+  --accent-hover: #3681cf;
+  --input-bg: #141414;
+}
+
+:root[data-theme="light"] {
+  --bg: #ecece9;
+  --panel: #f9f9f7;
+  --surface: #f4f4f2;
+  --surface-2: #ffffff;
+  --hover: #ecece9;
+  --border: rgb(45 45 43 / 16%);
+  --border-2: rgb(45 45 43 / 28%);
+  --text: #2d2d2b;
+  --text-dim: #6b6b67;
+  --text-faint: #8b8b87;
+  --accent: #a95639;
+  --accent-hover: #cc7d5e;
+  --input-bg: #f4f4f2;
+}

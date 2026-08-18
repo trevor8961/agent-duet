@@ -171,14 +171,14 @@ onUnmounted(() => es?.close());
 <style scoped>
 .wrap { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; height: 100%; }
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.cwd { color: #777; font-size: 12px; }
-.mode { color: #777; font-size: 12px; border: 1px solid #333; padding: 1px 8px; border-radius: 99px; }
+.cwd { color: var(--text-faint); font-size: 12px; }
+.mode { color: var(--text-faint); font-size: 12px; border: 1px solid var(--border-2); padding: 1px 8px; border-radius: 99px; }
 .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #263; color: #9f9; }
 .badge[data-status="running"] { background: #441; color: #ff9; }
 .badge[data-status="error"] { background: #411; color: #f99; }
 .badge[data-status="cancelled"] { background: #234; color: #99f; }
 .flow { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; }
-.empty { color: #666; text-align: center; padding: 40px; }
+.empty { color: var(--text-faint); text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
 .bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
@@ -225,12 +225,12 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .thinking pre { margin: 6px 0 0; padding: 8px; background: #17150f; border-radius: 8px; white-space: pre-wrap; color: #a89c85; }
 .tool { align-self: flex-start; font-size: 12px; max-width: 90%; border: 1px dashed #3a4a5c; border-radius: 8px; padding: 4px 10px; margin-left: 0; }
 .tool summary { cursor: pointer; color: #7a8aa0; }
-.tool-io { margin: 6px 0 0; white-space: pre-wrap; color: #9aa; }
+.tool-io { margin: 6px 0 0; white-space: pre-wrap; color: var(--text-dim); }
 .tool-io[data-err="true"] { color: #f99; }
 footer { display: flex; gap: 8px; margin-top: 12px; }
-textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #141414; color: #eee; resize: none; font-family: inherit; }
-button { padding: 6px 16px; border-radius: 8px; border: 1px solid #333; background: #222; color: #ddd; cursor: pointer; }
-button.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); resize: none; font-family: inherit; }
+button { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { background: #7a2b2b; border-color: #7a2b2b; color: #fff; }
 button:disabled { opacity: .5; }
 </style>
