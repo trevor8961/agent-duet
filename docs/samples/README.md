@@ -100,3 +100,18 @@ messages: id, session_id, seq, role(user/assistant),
 
 - 用户输入由后端自己落库（role=user, channel=text），事件流里没有
 - content 用 JSON 存，兼容各 channel 不同的负载结构
+
+## 真机冒烟 L4/L5 发现（2026-xx，data/raw/17-19 留档）
+
+- **L4a/L4b 模式对照**：同一写文件任务，guided(default)→Write 被拒→turn=error；
+  autonomous(acceptEdits)→成功落盘→turn=done。模式翻译链路真实验证。
+- **空 thinking 块**：L4b 中出现 `{"text": ""}` 的空思考块（真实数据特有），
+  parser 需决定过滤策略。
+- **L5 揭示 error 语义缺陷**：18 轮 loop 任务中一次 Bash 被权限拒绝，
+  agent 换方法后**成功完成了任务并给出完整统计表**，但按现行规则
+  （permission_denials 非空 → error）turn 被标为 error。
+  → "拒绝过" ≠ "失败"，语义需重新设计（待决策）。
+- **可观测性缺陷**：raw 文件在进程结束后才一次性落盘，running 期间
+  完全不可观测 → 佐证 SSE/增量落库的必要性。
+- **测试污染事故**：早前晚绑定 bug 曾让测试数据写入真实库（已清理），
+  教训：引擎绑定对象必须运行时取。
