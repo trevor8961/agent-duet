@@ -10,40 +10,32 @@ const input = ref("");
 const running = ref(false);
 let es = null;
 
-// 前端按 channel 分声部渲染：tool_use/tool_result 靠 id 配对成树
+// 前端按 channel 分声部渲染：条目按 seq 排序，工具块插回真实时序位置
+// （实测 agent 会并行发多个工具调用、回复和工具交替出现，渲染必须尊重 seq）
 function groupMessages(messages) {
   try {
-    return _group(messages);
-  } catch {
-    return messages.map((m) => ({ msgs: [m], toolPairs: [] }));
-  }
-}
-
-function _group(messages) {
-  const turns = new Map();
-  for (const m of messages) {
-    if (!turns.has(m.turn_id)) turns.set(m.turn_id, []);
-    turns.get(m.turn_id).push(m);
-  }
-  return [...turns.values()].map((msgs) => {
-    const toolPairs = [];
-    const seen = new Set();
-    for (const m of msgs) {
+    const byId = new Map(messages.map((m) => [m.seq, m]));
+    const used = new Set();
+    const items = [];
+    for (const m of messages) {
       if (m.channel === "tool_use") {
-        const payload = JSON.parse(m.content);
-        const result = msgs.find(
+        const payload = parseContent(m);
+        const result = messages.find(
           (x) => x.channel === "tool_result" && x.tool_use_id === payload.tool_use_id
         );
-        toolPairs.push({ use: m, payload, result });
-        if (result) seen.add(result.seq);
+        if (result) used.add(result.seq);
+        items.push({ kind: "tool", seq: m.seq, payload, result });
+      } else if (m.channel === "tool_result") {
+        if (!used.has(m.seq)) items.push({ kind: "tool_result_orphan", seq: m.seq, m });
+      } else {
+        items.push({ kind: m.channel === "thinking" ? "thinking" : "bubble", seq: m.seq, m });
       }
     }
-    return {
-      intent: null,
-      msgs: msgs.filter((m) => !(m.channel === "tool_result" && seen.has(m.seq))),
-      toolPairs,
-    };
-  });
+    items.sort((a, b) => a.seq - b.seq);
+    return [{ items }];
+  } catch {
+    return [{ items: messages.map((m) => ({ kind: m.channel === "thinking" ? "thinking" : "bubble", seq: m.seq, m })) }];
+  }
 }
 
 function parseContent(m) {
@@ -133,27 +125,27 @@ onUnmounted(() => es?.close());
         这个会话还没有内容（可能是发出后即被取消，或尚未提问）
       </div>
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
-        <template v-for="m in turn.msgs" :key="m.seq">
-          <div v-if="m.role === 'user' && m.channel === 'text'" class="bubble user">
-            {{ parseContent(m).text }}
+        <template v-for="item in turn.items" :key="item.seq">
+          <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="bubble user">
+            {{ parseContent(item.m).text }}
           </div>
 
-          <details v-else-if="m.channel === 'thinking'" class="thinking">
+          <details v-else-if="item.kind === 'thinking'" class="thinking">
             <summary>💭 低声部（思考）</summary>
-            <pre>{{ parseContent(m).text }}</pre>
+            <pre>{{ parseContent(item.m).text }}</pre>
           </details>
 
-          <div v-else-if="m.channel === 'text'" class="bubble agent">
-            <pre>{{ parseContent(m).text }}</pre>
+          <div v-else-if="item.kind === 'bubble'" class="bubble agent">
+            <pre>{{ parseContent(item.m).text }}</pre>
           </div>
-        </template>
 
-        <details v-for="tp in turn.toolPairs" :key="tp.use.seq" class="tool">
-          <summary>🔧 {{ tp.payload.tool }}</summary>
-          <pre class="tool-io">→ {{ JSON.stringify(tp.payload.input, null, 2) }}</pre>
-          <pre v-if="tp.result" class="tool-io" :data-err="parseContent(tp.result).is_error">
-            ← {{ parseContent(tp.result).content }}</pre>
-        </details>
+          <details v-else-if="item.kind === 'tool'" class="tool">
+            <summary>🔧 {{ item.payload.tool }}</summary>
+            <pre class="tool-io">→ {{ JSON.stringify(item.payload.input, null, 2) }}</pre>
+            <pre v-if="item.result" class="tool-io" :data-err="parseContent(item.result).is_error">
+              ← {{ parseContent(item.result).content }}</pre>
+          </details>
+        </template>
       </template>
     </div>
 
