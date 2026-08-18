@@ -1,23 +1,15 @@
 <script setup>
 import { ref, onMounted } from "vue";
+import LeftNav from "./LeftNav.vue";
 import SessionDetail from "./SessionDetail.vue";
+import ContextPanel from "./ContextPanel.vue";
 
 const currentId = ref(null);
-
-function syncRoute() {
-  const m = location.hash.match(/^#\/s\/(\d+)/);
-  currentId.value = m ? Number(m[1]) : null;
-  if (!currentId.value) loadSessions();
-}
-window.addEventListener("hashchange", syncRoute);
-
-const API = "/api";
-
-const sessions = ref([]);
-const agents = ref([]);
-const search = ref("");
+const detail = ref(null);
 const showCreate = ref(false);
+const agents = ref([]);
 const form = ref({ title: "", cwd: "", agent_id: null, mode: "guided" });
+const leftNav = ref(null);
 
 const MODES = [
   { value: "readonly", label: "只读" },
@@ -26,66 +18,52 @@ const MODES = [
   { value: "autonomous", label: "自主（放手干）" },
 ];
 
-async function loadSessions() {
-  const q = search.value ? `?q=${encodeURIComponent(search.value)}` : "";
-  const r = await fetch(`${API}/sessions${q}`);
-  sessions.value = await r.json();
+function syncRoute() {
+  const m = location.hash.match(/^#\/s\/(\d+)/);
+  currentId.value = m ? Number(m[1]) : null;
+  detail.value = null;
+  leftNav.value?.load();
+}
+window.addEventListener("hashchange", syncRoute);
+
+function onLoaded(d) {
+  detail.value = d;
 }
 
 async function createSession() {
-  const r = await fetch(`${API}/sessions`, {
+  const r = await fetch("/api/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(form.value),
   });
   if (r.ok) {
     showCreate.value = false;
-    await loadSessions();
     const s = await r.json();
-    openSession(s.id);
+    location.hash = `#/s/${s.id}`;
   }
-}
-
-function openSession(id) {
-  location.hash = `#/s/${id}`;
 }
 
 onMounted(async () => {
   syncRoute();
-  agents.value = await (await fetch(`${API}/agents`)).json();
+  agents.value = await (await fetch("/api/agents")).json();
   if (agents.value.length) form.value.agent_id = agents.value[0].id;
-  await loadSessions();
 });
 </script>
 
 <template>
-  <SessionDetail v-if="currentId" :id="currentId" @back="location.hash = '#'" />
-  <div class="wrap" v-else>
-    <header>
-      <h1>agent-duet</h1>
-      <span class="sub">你和 agent 的二重唱</span>
-      <button class="primary" @click="showCreate = true">＋ 新会话</button>
-    </header>
+  <div class="shell">
+    <LeftNav ref="leftNav" @open="(id) => (location.hash = `#/s/${id}`)" @create="showCreate = true" />
 
-    <div class="toolbar">
-      <input v-model="search" placeholder="搜索话题 / 目录…" @input="loadSessions" />
-    </div>
-
-    <div class="list">
-      <div v-for="s in sessions" :key="s.id" class="card" @click="openSession(s.id)">
-        <div class="card-head">
-          <strong>{{ s.title }}</strong>
-          <span class="badge" :data-status="s.status">{{ s.status }}</span>
-        </div>
-        <div class="meta">
-          <code>{{ s.cwd }}</code>
-          <span>· {{ s.mode }}</span>
-          <span>· {{ s.message_count }} 条</span>
-        </div>
-        <div class="preview">{{ s.last_preview || "（还没有回复）" }}</div>
+    <main class="center">
+      <SessionDetail v-if="currentId" :id="currentId" @loaded="onLoaded" />
+      <div v-else class="home">
+        <h1>agent-duet</h1>
+        <p class="sub">你和 agent 的二重唱 —— 主旋律与低声部分明，每场演出都有档案。</p>
+        <p class="hint">从左侧选择会话，或点「新会话」开始。</p>
       </div>
-      <div v-if="!sessions.length" class="empty">还没有会话，点「新会话」开始第一场合唱</div>
-    </div>
+    </main>
+
+    <ContextPanel v-if="currentId" :id="currentId" :detail="detail" />
 
     <div v-if="showCreate" class="modal" @click.self="showCreate = false">
       <div class="modal-box">
@@ -112,23 +90,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
-header h1 { font-size: 22px; margin: 0; }
-.sub { color: #888; flex: 1; }
-.toolbar input { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #eee; }
-.list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-.card { border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #141414; }
-.card:hover { border-color: #4a9eff; }
-.card-head { display: flex; justify-content: space-between; align-items: center; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #263; color: #9f9; }
-.badge[data-status="running"] { background: #441; color: #ff9; }
-.badge[data-status="error"] { background: #411; color: #f99; }
-.badge[data-status="cancelled"] { background: #234; color: #99f; }
-.meta { color: #777; font-size: 12px; margin: 6px 0 4px; display: flex; gap: 6px; flex-wrap: wrap; }
-.preview { color: #aaa; font-size: 13px; }
-.empty { color: #666; text-align: center; padding: 40px; }
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
+.shell { display: flex; height: 100vh; overflow: hidden; }
+.center { flex: 1; min-width: 0; display: flex; }
+.home { margin: auto; text-align: center; color: #777; }
+.home h1 { color: #ccc; margin-bottom: 8px; }
+.hint { font-size: 13px; color: #555; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
 .modal-box { background: #181818; border: 1px solid #333; border-radius: 12px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 12px; }
 .modal-box h2 { margin: 0 0 4px; font-size: 16px; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #999; }

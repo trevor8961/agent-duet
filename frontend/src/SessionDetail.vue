@@ -11,7 +11,7 @@ function renderMarkdown(text) {
 }
 
 const props = defineProps({ id: Number });
-const emit = defineEmits(["back"]);
+const emit = defineEmits(["back", "loaded"]);
 
 const API = "/api";
 const detail = ref(null);
@@ -57,6 +57,7 @@ async function load() {
     if (!r.ok) return;
     detail.value = await r.json();
     running.value = detail.value.status === "running";
+    emit("loaded", detail.value);
   } catch {
     // 网络瞬断等场景：不清空已有内容，下次 turn_done/手动操作再刷新
   }
@@ -122,7 +123,6 @@ onUnmounted(() => es?.close());
 <template>
   <div class="wrap" v-if="detail">
     <header>
-      <button class="ghost" @click="emit('back')">← 返回</button>
       <strong>{{ detail.title }}</strong>
       <span class="badge" :data-status="detail.status">{{ detail.status }}</span>
       <code class="cwd">{{ detail.cwd }}</code>
@@ -169,7 +169,7 @@ onUnmounted(() => es?.close());
 </template>
 
 <style scoped>
-.wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; height: 100vh; }
+.wrap { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; height: 100%; }
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .cwd { color: #777; font-size: 12px; }
 .mode { color: #777; font-size: 12px; border: 1px solid #333; padding: 1px 8px; border-radius: 99px; }
@@ -203,6 +203,5 @@ textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px
 button { padding: 6px 16px; border-radius: 8px; border: 1px solid #333; background: #222; color: #ddd; cursor: pointer; }
 button.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
 button.danger { background: #7a2b2b; border-color: #7a2b2b; color: #fff; }
-button.ghost { background: transparent; }
 button:disabled { opacity: .5; }
 </style>
