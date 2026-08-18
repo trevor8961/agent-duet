@@ -85,7 +85,17 @@ def register_routes(app):
         entry = _running.get(sid)
         if not entry:
             async with SessionLocal() as db:
+                from sqlalchemy import update
+
+                result = await db.execute(
+                    update(Turn).where(Turn.session_id == sid, Turn.status == "running")
+                    .values(status="cancelled")
+                )
                 s = await db.get(Session, sid)
+                if result.rowcount:  # 真有竞态窗口里的 running turn 才算取消成功
+                    s.status = "cancelled"
+                    await db.commit()
+                    return {"status": "cancelled"}
                 return {"status": s.status if s else "idle"}
         proc, _ = entry
         _cancel_flags.add(sid)
@@ -133,6 +143,8 @@ def register_routes(app):
             s = await db.get(Session, sid)
             if not s:
                 raise HTTPException(404)
+            if s.status == "running":
+                raise HTTPException(409, "该会话已有正在运行的 turn")
             agent = await db.get(Agent, s.agent_id)
 
             try:

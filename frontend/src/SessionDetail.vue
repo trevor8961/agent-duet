@@ -12,6 +12,14 @@ let es = null;
 
 // 前端按 channel 分声部渲染：tool_use/tool_result 靠 id 配对成树
 function groupMessages(messages) {
+  try {
+    return _group(messages);
+  } catch {
+    return messages.map((m) => ({ msgs: [m], toolPairs: [] }));
+  }
+}
+
+function _group(messages) {
   const turns = new Map();
   for (const m of messages) {
     if (!turns.has(m.turn_id)) turns.set(m.turn_id, []);
@@ -43,13 +51,16 @@ function parseContent(m) {
 }
 
 async function load() {
-  const r = await fetch(`${API}/sessions/${props.id}`);
-  if (!r.ok) return;
+  try {
+    const r = await fetch(`${API}/sessions/${props.id}`);
+    if (!r.ok) return;
+  } catch { return; }
   detail.value = await r.json();
   running.value = detail.value.status === "running";
 }
 
 function subscribe() {
+  es?.close();
   es = new EventSource(`${API}/sessions/${props.id}/events`);
   es.addEventListener("line", (ev) => {
     try {
@@ -70,6 +81,12 @@ function subscribe() {
     } catch { /* 未知行忽略，与后端解析器同一原则 */ }
   });
   es.addEventListener("turn_done", () => { es?.close(); es = null; load(); });
+}
+
+function onEnter(e) {
+  // 输入法组合中（含 keyCode 229 兼容旧实现）不发送
+  if (e.isComposing || e.keyCode === 229) return;
+  send();
 }
 
 async function send() {
@@ -135,7 +152,7 @@ onUnmounted(() => es?.close());
 
     <footer>
       <textarea v-model="input" :disabled="running" placeholder="向 agent 提问…（Enter 发送）"
-        @keydown.enter.exact.prevent="send"></textarea>
+        @keydown.enter.exact.prevent="onEnter($event)"></textarea>
       <button v-if="running" class="danger" @click="cancel">■ 停止</button>
       <button v-else class="primary" @click="send" :disabled="!input.trim()">发送</button>
     </footer>
