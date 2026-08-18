@@ -5,3 +5,5 @@ backend/__pycache__/
 
 # runtime state（所有状态收敛于此，不入库）
 data/
+frontend/node_modules/
+frontend/dist/

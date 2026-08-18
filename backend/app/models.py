@@ -8,6 +8,7 @@
 import json
 
 from sqlalchemy import (
+    text,
     ForeignKey,
     Index,
     Integer,
@@ -47,7 +48,7 @@ class Agent(Base):
     model: Mapped[str | None]  # 模型名，透传给 agent
     mode_map: Mapped[str] = mapped_column(default="{}")  # JSON: 通用档位 -> 原生参数
     capabilities: Mapped[str] = mapped_column(default="{}")  # JSON: 能力声明
-    created_at: Mapped[str] = mapped_column(default="datetime('now')")
+    created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
 
 
 class Session(Base):
@@ -62,8 +63,8 @@ class Session(Base):
     # 通用档位: readonly / plan / guided / autonomous，具体 agent 参数由 profile 翻译
     mode: Mapped[str] = mapped_column(default="guided")
     status: Mapped[str] = mapped_column(default="idle")  # idle/running/done/error/cancelled
-    created_at: Mapped[str] = mapped_column(default="datetime('now')")
-    updated_at: Mapped[str] = mapped_column(default="datetime('now')")
+    created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
+    updated_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
 
 
 class Turn(Base):
@@ -85,7 +86,7 @@ class Turn(Base):
     denied_count: Mapped[int | None] = mapped_column(Integer)  # 权限拒绝次数（L5 发现）
     outcome_source: Mapped[str | None]  # mechanical / llm / mechanical-fallback（判定审计）
     raw_path: Mapped[str | None]  # 原始 stream-json 文件路径
-    created_at: Mapped[str] = mapped_column(default="datetime('now')")
+    created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
 
 
 class Message(Base):
@@ -105,4 +106,4 @@ class Message(Base):
     channel: Mapped[str]  # text / thinking / tool_use / tool_result
     content: Mapped[str]  # JSON 字符串，按 channel 有不同负载
     tool_use_id: Mapped[str | None]  # channel=tool_result 时与 tool_use 配对
-    created_at: Mapped[str] = mapped_column(default="datetime('now')")
+    created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
