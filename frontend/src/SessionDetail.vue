@@ -29,6 +29,20 @@ let es = null;
 
 // 回复折叠：默认仅最新一条展开；用户手动开/关按 seq 记住
 const replyOverrides = ref({});
+const retriedTurns = ref(new Set()); // 已重试过的 turn，按钮置灰
+const elapsed = ref(0); // 运行耗时（秒）
+const thinkingTokens = ref(0); // 最近一次思考进度（来自 thinking_tokens 心跳）
+let elapsedTimer = null;
+
+function startWorking() {
+  elapsed.value = 0;
+  thinkingTokens.value = 0;
+  elapsedTimer = setInterval(() => (elapsed.value += 1), 1000);
+}
+function stopWorking() {
+  clearInterval(elapsedTimer);
+  elapsedTimer = null;
+}
 function replyOpen(m) {
   if (m.seq in replyOverrides.value) return replyOverrides.value[m.seq];
   const texts = (detail.value?.messages ?? []).filter((x) => x.channel === "text" && x.role === "assistant");
@@ -44,6 +58,7 @@ async function retryTurn(turnId) {
   // 取该 turn 的用户原文，作为新一轮重新发起（--resume 续上下文）
   const first = detail.value?.messages?.find((m) => m.turn_id === turnId && m.role === "user");
   if (!first || running.value) return;
+  retriedTurns.value = new Set([...retriedTurns.value, turnId]);
   input.value = parseContent(first).text ?? "";
   await send();
 }
@@ -116,6 +131,10 @@ function subscribe() {
       const e = JSON.parse(ev.data).data;
       const line = JSON.parse(e);
       if (!detail.value) await load();
+      if (line.type === "system" && line.subtype === "thinking_tokens") {
+        thinkingTokens.value = line.estimated_tokens ?? thinkingTokens.value;
+        return;
+      }
       if (line.type === "assistant") {
         // 实时低声部/主旋律：先本地展示，turn_done 后以 DB 为准刷新
         for (const block of line.message?.content ?? []) {
@@ -131,7 +150,11 @@ function subscribe() {
       }
     } catch { /* 未知行忽略，与后端解析器同一原则 */ }
   });
-  es.addEventListener("turn_done", () => { es?.close(); es = null; load().then(stickToBottom); });
+  es.addEventListener("turn_done", () => {
+    es?.close(); es = null;
+    stopWorking();
+    load().then(stickToBottom);
+  });
 }
 
 function onKeydown(e) {
@@ -149,6 +172,7 @@ async function send() {
   if (!detail.value) return;
   input.value = "";
   running.value = true;
+  startWorking();
   detail.value?.messages.push({
     seq: 9e9 - 1, role: "user", channel: "text",
     content: JSON.stringify({ text }), turn_id: -1,
@@ -172,7 +196,7 @@ onMounted(async () => {
   // 刷新/中途进入正在运行的会话：接上实时流
   if (detail.value?.status === "running") subscribe();
 });
-onUnmounted(() => es?.close());
+onUnmounted(() => { es?.close(); stopWorking(); });
 </script>
 
 <template>
@@ -191,8 +215,11 @@ onUnmounted(() => es?.close());
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <template v-for="item in turn.items" :key="item.seq">
           <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
-            <button v-if="turnFailed(item.m.turn_id)" class="retry" title="重新发起这一轮"
-              @click="retryTurn(item.m.turn_id)">↻ 重试</button>
+            <button v-if="turnFailed(item.m.turn_id)" class="retry"
+              :class="{ used: retriedTurns.has(item.m.turn_id) }"
+              :disabled="retriedTurns.has(item.m.turn_id) || running"
+              :title="retriedTurns.has(item.m.turn_id) ? '已重试过' : '重新发起这一轮'"
+              @click="retryTurn(item.m.turn_id)">↻ {{ retriedTurns.has(item.m.turn_id) ? '已重试' : '重试' }}</button>
             <div class="bubble user">{{ parseContent(item.m).text }}</div>
           </div>
 
@@ -221,6 +248,11 @@ onUnmounted(() => es?.close());
           </details>
         </template>
       </template>
+      <div v-if="running" class="working">
+        <span class="pulse"></span>
+        <span>agent 工作中 · {{ elapsed }}s</span>
+        <span v-if="thinkingTokens" class="tk">💭 {{ thinkingTokens }} tokens</span>
+      </div>
     </div>
 
     <footer>
@@ -245,9 +277,10 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .empty { color: var(--text-faint); text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
 .user-row { align-self: flex-end; display: flex; align-items: center; gap: 8px; max-width: 85%; }
-.user-row .bubble.user { background: #2b5387; color: #fff; }
+.user-row .bubble.user { background: #2b5387; color: #fff; max-width: none; flex: 1; min-width: 0; }
 .retry { padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; flex-shrink: 0; }
-.retry:hover { border-color: var(--accent); color: var(--text); }
+.retry:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.retry.used, .retry:disabled { opacity: .45; cursor: default; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
 .reply { align-self: stretch; }
@@ -309,6 +342,9 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .term-bar span { margin-left: 6px; font-size: 11px; color: #5c6a7a; font-family: ui-monospace, Menlo, monospace; }
 .term-io { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; color: #b8c4d0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; line-height: 1.5; }
 .term-io[data-err="true"] { color: #ff8a80; }
+.working { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
+.pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
+.tk { color: var(--text-faint); font-size: 12px; }
 footer { display: flex; gap: 8px; margin-top: 12px; }
 textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); resize: none; font-family: inherit; }
 button { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
