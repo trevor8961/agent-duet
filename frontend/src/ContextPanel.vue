@@ -1,13 +1,14 @@
 <script setup>
 import { ref, onMounted, watch } from "vue";
+import { t, intentLabel } from "./i18n";
 
 const props = defineProps({ id: Number, detail: Object });
 
 const MODES = [
-  { value: "readonly", label: "只读" },
-  { value: "plan", label: "计划" },
-  { value: "guided", label: "引导" },
-  { value: "autonomous", label: "自主" },
+  { value: "readonly", key: "modeReadonly" },
+  { value: "plan", key: "modePlan" },
+  { value: "guided", key: "modeGuided" },
+  { value: "autonomous", key: "modeAutonomous" },
 ];
 
 const saving = ref(false);
@@ -52,6 +53,9 @@ function activity(detail) {
   return { files: [...files], commands: commands.slice(-12), toolCount };
 }
 
+const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
+function statusText(s) { return STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s; }
+
 async function switchMode(mode) {
   saving.value = true;
   await fetch(`/api/sessions/${props.id}`, {
@@ -70,31 +74,31 @@ watch(() => props.detail?.messages?.length, loadGit);
   <aside class="ctx" v-if="detail">
     <!-- 模式：可操作，置顶 -->
     <section class="block" :data-open="openBlocks.has('mode')">
-      <header @click="toggleBlock('mode')"><span>模式</span><i></i></header>
+      <header @click="toggleBlock('mode')"><span>{{ t("mode") }}</span><i></i></header>
       <div v-show="openBlocks.has('mode')" class="modes">
         <button v-for="m in MODES" :key="m.value" :class="{ active: detail.mode === m.value }"
-          :disabled="saving" @click="switchMode(m.value)">{{ m.label }}</button>
+          :disabled="saving" @click="switchMode(m.value)">{{ t(m.key) }}</button>
       </div>
     </section>
 
     <!-- 基本信息 -->
     <section class="block" :data-open="openBlocks.has('info')">
-      <header @click="toggleBlock('info')"><span>基本信息</span><i></i></header>
+      <header @click="toggleBlock('info')"><span>{{ t("basicInfo") }}</span><i></i></header>
       <div v-show="openBlocks.has('info')" class="body">
-        <div class="kv"><span>话题</span><b>{{ detail.title }}</b></div>
-        <div class="kv"><span>目录</span><code :title="detail.cwd">{{ detail.cwd }}</code></div>
-        <div class="kv"><span>状态</span><b :data-status="detail.status">{{ detail.status }}</b></div>
-        <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? "已关联" : "未关联" }}</span></div>
+        <div class="kv"><span>{{ t("topicShort") }}</span><b>{{ detail.title }}</b></div>
+        <div class="kv"><span>{{ t("cwdShort") }}</span><code :title="detail.cwd">{{ detail.cwd }}</code></div>
+        <div class="kv"><span>{{ t("status") }}</span><b :data-status="detail.status">{{ detail.status }}</b></div>
+        <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? t("linked") : t("unlinked") }}</span></div>
       </div>
     </section>
 
     <!-- 工作区 -->
     <section class="block" :data-open="openBlocks.has('git')">
-      <header @click="toggleBlock('git')"><span>工作区</span><i></i></header>
+      <header @click="toggleBlock('git')"><span>{{ t("workspace") }}</span><i></i></header>
       <div v-show="openBlocks.has('git')" class="body">
         <template v-if="git?.is_repo">
-          <div class="kv"><span>分支</span><b class="branch">{{ git.branch }}</b></div>
-          <div v-if="git.upstream" class="kv"><span>远端</span>
+          <div class="kv"><span>{{ t("branch") }}</span><b class="branch">{{ git.branch }}</b></div>
+          <div v-if="git.upstream" class="kv"><span>{{ t("upstream") }}</span>
             <span class="upstream">
               {{ git.upstream }}
               <i v-if="git.ahead" class="ab ahead">↑{{ git.ahead }}</i>
@@ -103,7 +107,7 @@ watch(() => props.detail?.messages?.length, loadGit);
           </div>
           <div class="chg-toggle" :class="{ dirty: git.changes.length }" @click="showChanges = !showChanges">
             <i class="tri"></i>
-            <span>变更 · {{ git.changes.length }} 个文件</span>
+            <span>{{ t("changes") }} · {{ git.changes.length }} {{ t("filesChanged") }}</span>
           </div>
           <div v-if="showChanges && git.changes.length" class="changes">
             <div v-for="c in git.changes" :key="c.path" class="chg" :data-st="c.status" :title="c.path">
@@ -111,27 +115,27 @@ watch(() => props.detail?.messages?.length, loadGit);
             </div>
           </div>
         </template>
-        <div v-else class="none">非 git 仓库</div>
+        <div v-else class="none">{{ t("notGit") }}</div>
       </div>
     </section>
 
     <!-- 节目单 -->
     <section class="block" :data-open="openBlocks.has('turns')">
-      <header @click="toggleBlock('turns')"><span>节目单 · {{ detail.turns.length }} 轮</span><i></i></header>
+      <header @click="toggleBlock('turns')"><span>{{ t("playbill") }} · {{ detail.turns.length }} {{ t("rounds") }}</span><i></i></header>
       <div v-show="openBlocks.has('turns')" class="body">
         <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
-          <span class="intent">{{ t.intent }}</span>
-          <span class="t-status">{{ t.status }}</span>
+          <span class="intent">{{ intentLabel(t.intent) }}</span>
+          <span class="t-status">{{ statusText(t.status) }}</span>
           <span class="t-meta" v-if="t.duration_ms">{{ (t.duration_ms / 1000).toFixed(1) }}s</span>
           <span class="t-meta" v-if="t.total_cost_usd">${{ t.total_cost_usd.toFixed(2) }}</span>
         </div>
-        <div v-if="!detail.turns.length" class="none">还没有轮次</div>
+        <div v-if="!detail.turns.length" class="none">{{ t("noTurns") }}</div>
       </div>
     </section>
 
     <!-- 活动 -->
     <section class="block" :data-open="openBlocks.has('activity')">
-      <header @click="toggleBlock('activity')"><span>活动 · {{ activity(detail).toolCount }} 次工具</span><i></i></header>
+      <header @click="toggleBlock('activity')"><span>{{ t("activity") }} · {{ activity(detail).toolCount }} {{ t("toolCalls") }}</span><i></i></header>
       <div v-show="openBlocks.has('activity')" class="body">
         <div v-if="activity(detail).files.length" class="files">
           <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
@@ -139,7 +143,7 @@ watch(() => props.detail?.messages?.length, loadGit);
         <div class="cmds">
           <div v-for="(c, i) in activity(detail).commands" :key="i" class="cmd">$ {{ c.cmd }}</div>
         </div>
-        <div v-if="!activity(detail).toolCount" class="none">尚未动过手</div>
+        <div v-if="!activity(detail).toolCount" class="none">{{ t("noActivity") }}</div>
       </div>
     </section>
   </aside>

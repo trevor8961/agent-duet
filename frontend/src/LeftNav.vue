@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { getTheme, setTheme } from "./theme";
+import { t, i18n, setLang } from "./i18n";
 
 const emit = defineEmits(["open"]);
 
@@ -8,12 +9,17 @@ const recents = ref([]); // 最近会话
 const byCwd = ref([]); // 按 cwd 聚合
 const search = ref("");
 const theme = ref(getTheme());
-const showTheme = ref(false);
+const lang = ref(i18n.lang);
+const showConfig = ref(false);
 
 function pickTheme(t) {
   theme.value = t;
   setTheme(t);
-  showTheme.value = false;
+}
+
+function pickLang(l) {
+  lang.value = l;
+  setLang(l);
 }
 
 async function load() {
@@ -45,10 +51,10 @@ defineExpose({ load });
   <aside class="nav">
     <div class="brand">agent-duet</div>
 
-    <button class="new" @click="$emit('create')">＋ 新会话</button>
+    <button class="new" @click="$emit('create')">{{ t("newSession") }}</button>
 
     <div class="section">
-      <div class="title">最近</div>
+      <div class="title">{{ t("recent") }}</div>
       <div v-for="s in recents" :key="s.id" class="item" @click="open(s.id)">
         <span class="dot" :data-status="s.status"></span>
         <span class="label">{{ s.title }}</span>
@@ -56,7 +62,7 @@ defineExpose({ load });
     </div>
 
     <div class="section grow">
-      <div class="title">按工作目录</div>
+      <div class="title">{{ t("byCwd") }}</div>
       <details v-for="g in byCwd" :key="g.cwd" class="cwd-group" open>
         <summary>
           <code>{{ g.short }}</code>
@@ -69,10 +75,14 @@ defineExpose({ load });
       </details>
     </div>
     <div class="config">
-      <button class="gear" @click="showTheme = !showTheme">⚙ 主题：{{ { light: "浅色", dark: "深色", auto: "跟随系统" }[theme] }}</button>
-      <div v-if="showTheme" class="theme-pop">
-        <button v-for="t in ['light', 'dark', 'auto']" :key="t" :class="{ active: theme === t }" @click="pickTheme(t)">
-          {{ { light: "☀️ 浅色", dark: "🌙 深色", auto: "🖥 跟随系统" }[t] }}
+      <button class="gear" @click="showConfig = !showConfig">⚙ {{ t("theme") }}：{{ t(theme) }} · {{ t("language") }}：{{ lang === "zh" ? "中文" : "English" }}</button>
+      <div v-if="showConfig" class="theme-pop">
+        <button v-for="th in ['light', 'dark', 'auto']" :key="th" :class="{ active: theme === th }" @click="pickTheme(th)">
+          {{ { light: "☀️", dark: "🌙", auto: "🖥" }[th] }} {{ t(th) }}
+        </button>
+        <div class="pop-sep"></div>
+        <button v-for="l in ['zh', 'en']" :key="l" :class="{ active: lang === l }" @click="pickLang(l)">
+          {{ l === "zh" ? "🀄 中文" : "🔤 English" }}
         </button>
       </div>
     </div>
@@ -87,6 +97,7 @@ defineExpose({ load });
 .theme-pop button { padding: 7px 8px; border: none; background: none; color: var(--text-dim); cursor: pointer; text-align: left; font-size: 13px; border-radius: 5px; }
 .theme-pop button:hover { background: var(--hover); }
 .theme-pop button.active { color: var(--text); font-weight: 700; }
+.pop-sep { height: 1px; background: var(--border); margin: 3px 0; }
 .nav { width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px 10px; gap: 12px; overflow-y: auto; }
 .brand { font-weight: 700; font-size: 15px; padding: 0 8px; letter-spacing: .3px; }
 .new { padding: 8px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; }

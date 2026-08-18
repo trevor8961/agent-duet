@@ -317,13 +317,13 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   border-radius: 0.75rem;
   padding: 4px 18px;
   font-size: 14.5px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
-.md :deep(h1) { font-size: 1.4rem; line-height: 2rem; font-weight: 700; margin: .9rem 0 .15rem; padding-bottom: .3rem; border-bottom: 1px solid var(--paper-border); }
-.md :deep(h2) { font-size: 1.2rem; line-height: 1.75rem; font-weight: 700; margin: .8rem 0 .15rem; }
-.md :deep(h3) { font-size: 1.05rem; line-height: 1.6rem; font-weight: 700; margin: .65rem 0 .15rem; }
+.md :deep(h1) { font-size: 1.4rem; line-height: 1.9rem; font-weight: 700; margin: .6rem 0 .1rem; padding-bottom: .3rem; border-bottom: 1px solid var(--paper-border); }
+.md :deep(h2) { font-size: 1.2rem; line-height: 1.65rem; font-weight: 700; margin: .55rem 0 .1rem; }
+.md :deep(h3) { font-size: 1.05rem; line-height: 1.5rem; font-weight: 700; margin: .45rem 0 .1rem; }
 .md :deep(h4), .md :deep(h5), .md :deep(h6) { font-size: .95rem; font-weight: 700; margin: .5rem 0 .1rem; }
-.md :deep(p) { margin: .5rem 0; }
+.md :deep(p) { margin: .25rem 0; }
 .md :deep(a) { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
 .md :deep(strong) { font-weight: 700; color: #1f1f1d; }
 .md :deep(table) { border-collapse: collapse; width: 100%; margin: .75rem 0; font-variant-numeric: tabular-nums; font-size: .875rem; }

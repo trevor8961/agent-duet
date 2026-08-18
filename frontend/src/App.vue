@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import LeftNav from "./LeftNav.vue";
 import SessionDetail from "./SessionDetail.vue";
 import ContextPanel from "./ContextPanel.vue";
+import { t } from "./i18n";
 
 const currentId = ref(null);
 const detail = ref(null);
@@ -33,10 +34,10 @@ function startDrag(e) {
 }
 
 const MODES = [
-  { value: "readonly", label: "只读" },
-  { value: "plan", label: "计划" },
-  { value: "guided", label: "引导（逐步确认）" },
-  { value: "autonomous", label: "自主（放手干）" },
+  { value: "readonly", key: "modeReadonly" },
+  { value: "plan", key: "modePlan" },
+  { value: "guided", key: "modeGuidedFull" },
+  { value: "autonomous", key: "modeAutonomousFull" },
 ];
 
 function syncRoute() {
@@ -87,8 +88,8 @@ onMounted(async () => {
       <SessionDetail v-if="currentId" :id="currentId" @loaded="onLoaded" />
       <div v-else class="home">
         <h1>agent-duet</h1>
-        <p class="sub">你和 agent 的二重唱 —— 主旋律与低声部分明，每场演出都有档案。</p>
-        <p class="hint">从左侧选择会话，或点「新会话」开始。</p>
+        <p class="sub">{{ t("homeSub") }}</p>
+        <p class="hint">{{ t("homeHint") }}</p>
       </div>
     </main>
 
@@ -99,22 +100,22 @@ onMounted(async () => {
 
     <div v-if="showCreate" class="modal" @click.self="showCreate = false">
       <div class="modal-box">
-        <h2>新建会话</h2>
-        <label>话题（用于检索）<input v-model="form.title" placeholder="比如：修复登录超时" /></label>
-        <label>工作目录<input v-model="form.cwd" placeholder="/Users/you/project" /></label>
-        <label>Agent
+        <h2>{{ t("createSession") }}</h2>
+        <label>{{ t("topic") }}<input v-model="form.title" :placeholder="t('topicPh')" /></label>
+        <label>{{ t("cwdLabel") }}<input v-model="form.cwd" :placeholder="t('cwdPh')" /></label>
+        <label>{{ t("agent") }}
           <select v-model="form.agent_id">
             <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
         </label>
-        <label>模式
+        <label>{{ t("mode") }}
           <select v-model="form.mode">
-            <option v-for="m in MODES" :key="m.value" :value="m.value">{{ m.label }}</option>
+            <option v-for="m in MODES" :key="m.value" :value="m.value">{{ t(m.key) }}</option>
           </select>
         </label>
         <div class="actions">
-          <button @click="showCreate = false">取消</button>
-          <button class="primary" @click="createSession" :disabled="!form.title || !form.cwd">开始</button>
+          <button @click="showCreate = false">{{ t("cancel") }}</button>
+          <button class="primary" @click="createSession" :disabled="!form.title || !form.cwd">{{ t("start") }}</button>
         </div>
       </div>
     </div>
