@@ -161,6 +161,11 @@ watch(() => props.detail?.messages?.length, loadGit);
 .block[data-open="true"] header i { transform: rotate(180deg); }
 .block .body { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 3px; }
 .scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 4px; }
+/* macOS 悬叠式滚动条平时不可见，用户无从知道可滚——常显细滚动条 */
+.scroll-list::-webkit-scrollbar, .changes::-webkit-scrollbar { width: 6px; }
+.scroll-list::-webkit-scrollbar-thumb, .changes::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+.scroll-list::-webkit-scrollbar-thumb:hover, .changes::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+.scroll-list::-webkit-scrollbar-track, .changes::-webkit-scrollbar-track { background: transparent; }
 
 .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-dim); align-items: center; }
 .kv span:first-child { color: var(--text-faint); }
