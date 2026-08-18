@@ -176,7 +176,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .thinking { align-self: flex-start; font-size: 13px; color: #8a7f6f; max-width: 90%; }
 .thinking summary { cursor: pointer; color: #6f6a5f; }
 .thinking pre { margin: 6px 0 0; padding: 8px; background: #17150f; border-radius: 8px; white-space: pre-wrap; color: #a89c85; }
-.tool { align-self: flex-start; font-size: 12px; max-width: 90%; border: 1px dashed #333; border-radius: 8px; padding: 6px 10px; }
+.tool { align-self: flex-start; font-size: 12px; max-width: 90%; border: 1px dashed #3a4a5c; border-radius: 8px; padding: 4px 10px; margin-left: 0; }
 .tool summary { cursor: pointer; color: #7a8aa0; }
 .tool-io { margin: 6px 0 0; white-space: pre-wrap; color: #9aa; }
 .tool-io[data-err="true"] { color: #f99; }
