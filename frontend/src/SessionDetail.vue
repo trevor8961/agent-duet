@@ -79,6 +79,7 @@ function subscribe() {
     try {
       const e = JSON.parse(ev.data).data;
       const line = JSON.parse(e);
+      if (!detail.value) await load();
       if (line.type === "assistant") {
         // 实时低声部/主旋律：先本地展示，turn_done 后以 DB 为准刷新
         for (const block of line.message?.content ?? []) {
@@ -107,6 +108,8 @@ function onKeydown(e) {
 async function send() {
   const text = input.value.trim();
   if (!text || running.value) return;
+  if (!detail.value) await load(); // HMR/加载竞态兜底：没有详情就先拉
+  if (!detail.value) return;
   input.value = "";
   running.value = true;
   detail.value?.messages.push({
