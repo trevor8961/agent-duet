@@ -26,6 +26,14 @@ function syncRoute() {
 }
 window.addEventListener("hashchange", syncRoute);
 
+function openSession(id) {
+  location.hash = `#/s/${id}`;
+}
+
+function goHome() {
+  location.hash = "";
+}
+
 function onLoaded(d) {
   detail.value = d;
 }
@@ -52,7 +60,7 @@ onMounted(async () => {
 
 <template>
   <div class="shell">
-    <LeftNav ref="leftNav" @open="(id) => (location.hash = `#/s/${id}`)" @create="showCreate = true" />
+    <LeftNav ref="leftNav" @open="openSession" @create="showCreate = true" />
 
     <main class="center">
       <SessionDetail v-if="currentId" :id="currentId" @loaded="onLoaded" />
