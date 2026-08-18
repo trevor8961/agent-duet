@@ -141,7 +141,7 @@ onUnmounted(() => es?.close());
 
           <details v-else-if="item.kind === 'thinking'" class="thinking">
             <summary>💭 低声部（思考）</summary>
-            <pre>{{ parseContent(item.m).text }}</pre>
+            <div class="thinking-body md-inline" v-html="renderMarkdown(parseContent(item.m).text)"></div>
           </details>
 
           <div v-else-if="item.kind === 'bubble'" class="bubble agent md">
@@ -151,9 +151,11 @@ onUnmounted(() => es?.close());
 
           <details v-else-if="item.kind === 'tool'" class="tool">
             <summary>🔧 {{ item.payload.tool }}</summary>
-            <pre class="tool-io">→ {{ JSON.stringify(item.payload.input, null, 2) }}</pre>
-            <pre v-if="item.result" class="tool-io" :data-err="parseContent(item.result).is_error">
-              ← {{ parseContent(item.result).content }}</pre>
+            <div class="term">
+              <div class="term-bar"><i></i><i></i><i></i><span>{{ item.payload.tool }}</span></div>
+              <pre class="term-io">$ {{ JSON.stringify(item.payload.input, null, 2) }}</pre>
+              <pre v-if="item.result" class="term-io" :data-err="parseContent(item.result).is_error">{{ parseContent(item.result).content }}</pre>
+            </div>
           </details>
         </template>
       </template>
@@ -225,8 +227,16 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .thinking pre { margin: 6px 0 0; padding: 8px; background: #17150f; border-radius: 8px; white-space: pre-wrap; color: #a89c85; }
 .tool { align-self: flex-start; font-size: 12px; max-width: 90%; border: 1px dashed #3a4a5c; border-radius: 8px; padding: 4px 10px; margin-left: 0; }
 .tool summary { cursor: pointer; color: #7a8aa0; }
-.tool-io { margin: 6px 0 0; white-space: pre-wrap; color: var(--text-dim); }
-.tool-io[data-err="true"] { color: #f99; }
+/* 终端窗口：刻意固定深色（终端隐喻不随主题），浅色主题下黑终端反而准确 */
+.term { margin: 6px 0 0; border-radius: 8px; overflow: hidden; background: #0b0e12; border: 1px solid #1e2430; }
+.term-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #141922; border-bottom: 1px solid #1e2430; }
+.term-bar i { width: 10px; height: 10px; border-radius: 50%; }
+.term-bar i:nth-child(1) { background: #ff5f57; }
+.term-bar i:nth-child(2) { background: #febc2e; }
+.term-bar i:nth-child(3) { background: #28c840; }
+.term-bar span { margin-left: 6px; font-size: 11px; color: #5c6a7a; font-family: ui-monospace, Menlo, monospace; }
+.term-io { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; color: #b8c4d0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; line-height: 1.5; }
+.term-io[data-err="true"] { color: #ff8a80; }
 footer { display: flex; gap: 8px; margin-top: 12px; }
 textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); resize: none; font-family: inherit; }
 button { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
