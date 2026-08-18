@@ -81,12 +81,31 @@ async def test_post_message_persists_full_turn(client, tmp_path):  # noqa: F811
     assert sid_db == expected_sid
 
 
-async def test_permission_denial_marks_error(client, tmp_path):  # noqa: F811
-    """场景：回放 04 权限拒绝采样。期望：turn=error（不是 done）。"""
+async def test_permission_denial_marks_error(client, tmp_path, monkeypatch):  # noqa: F811
+    """场景：回放 04 权限拒绝采样。期望：turn=error。
+
+    判定注入假 LLM（返回 error）——不依赖假脚本回放内容的碰巧解析。
+    """
+    import app.runner as runner_mod
+
+    def fake_judge_factory(command):
+        async def llm(inp):
+            return "error"
+
+        return llm
+
+    monkeypatch.setattr(runner_mod, "_judge_factory", fake_judge_factory)
+
     sid = await create_session_with_fake_claude(client, tmp_path, "04-error.jsonl")
     await client.post(f"/api/sessions/{sid}/messages", json={"text": "读一个没权限的文件"})
     status = await wait_turn_done(tmp_path)
     assert status == "error"
+
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "agent-duet.db")
+    src = db.execute("SELECT outcome_source, denied_count FROM turns").fetchone()
+    assert src == ("llm", 1)  # 歧义区确实走了 LLM 判定
 
 
 async def test_resume_passes_session_id(client, tmp_path):  # noqa: F811

@@ -27,7 +27,8 @@ class ParsedMessage:
 class ParseResult:
     messages: list[ParsedMessage] = field(default_factory=list)
     agent_session_id: str | None = None
-    turn_status: str = "done"  # done / error
+    is_error: bool = False  # result 事件原样标志（注意：权限拒绝时它仍是 False，见 04 样本）
+    turn_status: str = "done"  # 合成状态：is_error 或 permission_denials 任一非空则 error
     permission_denials: list = field(default_factory=list)
     # 以下字段只在 result 事件出现一次，不取即丢（原始优先原则的传递侧）
     total_cost_usd: float | None = None
@@ -98,6 +99,7 @@ def parse_stream(lines: list[str]) -> ParseResult:
                     )
 
         elif etype == "result":
+            result.is_error = bool(event.get("is_error"))
             result.total_cost_usd = event.get("total_cost_usd")
             result.num_turns = event.get("num_turns")
             result.duration_ms = event.get("duration_ms")

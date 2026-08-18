@@ -82,6 +82,8 @@ class Turn(Base):
     total_cost_usd: Mapped[float | None] = mapped_column(REAL)
     num_turns: Mapped[int | None] = mapped_column(Integer)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
+    denied_count: Mapped[int | None] = mapped_column(Integer)  # 权限拒绝次数（L5 发现）
+    outcome_source: Mapped[str | None]  # mechanical / llm / mechanical-fallback（判定审计）
     raw_path: Mapped[str | None]  # 原始 stream-json 文件路径
     created_at: Mapped[str] = mapped_column(default="datetime('now')")
 

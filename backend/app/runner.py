@@ -17,8 +17,12 @@ from pathlib import Path
 from sqlalchemy import func, select
 
 from .db import DATA_DIR, SessionLocal
+from .judge import JudgeInput, decide_outcome, make_claude_judge
 from .models import Agent, Message, Session, Turn
 from .parser import parse_stream
+
+# 判定用的 LLM 工厂（注入点：测试换假实现，避免真调 claude）
+_judge_factory = make_claude_judge
 
 # 意图判定模块未落地前的占位（testing.md 第 4 层届时替换）
 DEFAULT_INTENT = "询问"
@@ -67,6 +71,23 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
 
     result = parse_stream(lines)
 
+    # 分层语义判定（docs/testing.md L5 发现）：拒绝过≠失败，歧义区 LLM 兜底
+    final_text = next(
+        (json.loads(m.content).get("text", "") for m in reversed(result.messages)
+         if m.channel == "text" and m.role == "assistant"),
+        "",
+    )
+    judge = _judge_factory(cmd[0])  # 判定用同一个 agent（cmd[0] 是可执行命令）
+    status, source = await decide_outcome(
+        JudgeInput(
+            is_error=result.is_error,
+            denied_count=len(result.permission_denials),
+            user_prompt=prompt,
+            final_text=final_text,
+        ),
+        llm=judge,
+    )
+
     async with SessionLocal() as db:
         # seq 接续：取当前最大值（并发 turn 不存在——每 session 同时只跑一个）
         max_seq = (await db.scalar(select(func.max(Message.seq)).where(Message.session_id == session_id))) or 0
@@ -83,13 +104,15 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
         db.add_all(rows)
 
         turn = await db.get(Turn, turn_id)
-        turn.status = result.turn_status
+        turn.status = status
+        turn.outcome_source = source
+        turn.denied_count = len(result.permission_denials)
         turn.total_cost_usd = result.total_cost_usd
         turn.num_turns = result.num_turns
         turn.duration_ms = result.duration_ms
         turn.raw_path = str(raw_path)
 
-        if result.turn_status == "error":
+        if status == "error":
             session = await db.get(Session, session_id)
             session.status = "error"
         elif result.agent_session_id:

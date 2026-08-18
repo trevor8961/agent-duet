@@ -64,7 +64,10 @@ session。agent 借此获得记忆与成长。v1 不实现，但数据结构按�
       DoD 含：无 N+1 查询计数断言 + 过滤场景测试
   - [x] 编排层：runner.py（命令组装/模式翻译/raw 留档/落库）+ routes.py
         （agents/sessions/messages 增改查），假 claude 脚本回放采样测试，17 passed
-  - [x] 真机冒烟：真实 claude 全链路（建档→提问→分声部落库→--resume 续接），
+  - [x] 语义判定（方案B）：app/judge.py 分层判定，机械规则零成本，
+        歧义区（有拒绝+result成功）LLM 兜底；turns 增 denied_count/outcome_source；
+        真机验证 guided 写文件被拒 → LLM 正确判 error
+  - [x] 真机冒烟：真实 claude 全链路（建档→提问→分声部落库→--resume 续接）+ L4 模式对照 + L5 长任务（18轮/17工具/$0.64），
         data/raw/ 留有真实样本，session id 稳定复用
   - [ ] SSE 实时推送（当前数据收完才能看，缺实时性）
   - [ ] 最小页面：session 列表（时间/目录/话题/意图筛选）+ 对话页（分声部）
