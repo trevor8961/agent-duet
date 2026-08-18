@@ -75,9 +75,10 @@ watch(() => props.detail?.messages?.length, loadGit);
     <!-- 模式：可操作，置顶 -->
     <section class="block" :data-open="openBlocks.has('mode')">
       <header @click="toggleBlock('mode')"><span>{{ t("mode") }}</span><i></i></header>
-      <div v-show="openBlocks.has('mode')" class="modes">
-        <button v-for="m in MODES" :key="m.value" :class="{ active: detail.mode === m.value }"
-          :disabled="saving" @click="switchMode(m.value)">{{ t(m.key) }}</button>
+      <div v-show="openBlocks.has('mode')" class="body">
+        <select class="mode-select" :value="detail.mode" :disabled="saving" @change="switchMode($event.target.value)">
+          <option v-for="m in MODES" :key="m.value" :value="m.value">{{ t(m.key) }}</option>
+        </select>
       </div>
     </section>
 
@@ -109,7 +110,7 @@ watch(() => props.detail?.messages?.length, loadGit);
             <i class="tri"></i>
             <span>{{ t("changes") }} · {{ git.changes.length }} {{ t("filesChanged") }}</span>
           </div>
-          <div v-if="showChanges && git.changes.length" class="changes">
+          <div v-if="showChanges && git.changes.length" class="changes scroll-list">
             <div v-for="c in git.changes" :key="c.path" class="chg" :data-st="c.status" :title="c.path">
               <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
             </div>
@@ -122,7 +123,7 @@ watch(() => props.detail?.messages?.length, loadGit);
     <!-- 节目单 -->
     <section class="block" :data-open="openBlocks.has('turns')">
       <header @click="toggleBlock('turns')"><span>{{ t("playbill") }} · {{ detail.turns.length }} {{ t("rounds") }}</span><i></i></header>
-      <div v-show="openBlocks.has('turns')" class="body">
+      <div v-show="openBlocks.has('turns')" class="body scroll-list">
         <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
           <span class="intent">{{ intentLabel(t.intent) }}</span>
           <span class="t-status">{{ statusText(t.status) }}</span>
@@ -140,7 +141,7 @@ watch(() => props.detail?.messages?.length, loadGit);
         <div v-if="activity(detail).files.length" class="files">
           <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
         </div>
-        <div class="cmds">
+        <div class="cmds scroll-list">
           <div v-for="(c, i) in activity(detail).commands" :key="i" class="cmd">$ {{ c.cmd }}</div>
         </div>
         <div v-if="!activity(detail).toolCount" class="none">{{ t("noActivity") }}</div>
@@ -159,6 +160,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .block header i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; }
 .block[data-open="true"] header i { transform: rotate(180deg); }
 .block .body { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 3px; }
+.scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 4px; }
 
 .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-dim); align-items: center; }
 .kv span:first-child { color: var(--text-faint); }
@@ -167,9 +169,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
 
-.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 14px 12px; }
-.modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; }
-.modes button.active { border-color: var(--accent); background: var(--surface-2); color: var(--text); font-weight: 700; }
+.mode-select { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); cursor: pointer; font-size: 13px; }
 
 .branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .upstream { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text-dim); display: inline-flex; gap: 4px; align-items: center; }
@@ -180,7 +180,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .chg-toggle:hover { color: var(--text); }
 .chg-toggle.dirty .tri { border-top-color: var(--accent); }
 .tri { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; flex-shrink: 0; }
-.changes { max-height: 260px; overflow-y: auto; }
+.changes { }
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
