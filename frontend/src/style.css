@@ -1,3 +1,13 @@
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+/* 纸卡（agent 回复）随主题适配：
+   深色=米色纸（标志性对比），浅色=纯白纸（在米色页面上浮出层次） */
+:root[data-theme="light"] .bubble.agent.md {
+  --paper-bg: #ffffff;
+  --paper-surface: #f4f4f2;
+  --paper-text: #2d2d2b;
+  --paper-border: rgb(45 45 43 / 18%);
+  box-shadow: 0 1px 3px rgb(45 45 43 / 10%);
+}
