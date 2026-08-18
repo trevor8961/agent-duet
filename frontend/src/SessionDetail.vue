@@ -153,7 +153,7 @@ onUnmounted(() => es?.close());
             <summary>🔧 {{ item.payload.tool }}</summary>
             <div class="term">
               <div class="term-bar"><i></i><i></i><i></i><span>{{ item.payload.tool }}</span></div>
-              <pre class="term-io">$ {{ JSON.stringify(item.payload.input, null, 2) }}</pre>
+              <pre class="term-io">$ {{ JSON.stringify(item.payload.input) }}</pre>
               <pre v-if="item.result" class="term-io" :data-err="parseContent(item.result).is_error">{{ parseContent(item.result).content }}</pre>
             </div>
           </details>
