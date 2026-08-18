@@ -49,10 +49,18 @@ function replyOpen(m) {
   const lastSeq = texts.length ? texts[texts.length - 1].seq : -1;
   return m.seq === lastSeq;
 }
+function turnDenied(turnId) {
+  const t = detail.value?.turns?.find((x) => x.id === turnId);
+  return t?.status === "denied";
+}
+
 function turnFailed(turnId) {
   const t = detail.value?.turns?.find((x) => x.id === turnId);
-  return t && (t.status === "error" || t.status === "cancelled");
+  return t && ["error", "cancelled", "denied"].includes(t.status);
 }
+
+const STATUS_TEXT = { denied: "需授权", error: "失败", cancelled: "已取消", done: "完成", running: "进行中" };
+function statusText(s) { return STATUS_TEXT[s] ?? s; }
 
 async function retryTurn(turnId) {
   // 取该 turn 的用户原文，作为新一轮重新发起（--resume 续上下文）
@@ -203,7 +211,7 @@ onUnmounted(() => { es?.close(); stopWorking(); });
   <div class="wrap" v-if="detail">
     <header>
       <strong>{{ detail.title }}</strong>
-      <span class="badge" :data-status="detail.status">{{ detail.status }}</span>
+      <span class="badge" :data-status="detail.status">{{ statusText(detail.status) }}</span>
       <code class="cwd">{{ detail.cwd }}</code>
       <span class="mode">{{ detail.mode }}</span>
     </header>
@@ -215,6 +223,7 @@ onUnmounted(() => { es?.close(); stopWorking(); });
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <template v-for="item in turn.items" :key="item.seq">
           <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
+            <span v-if="turnDenied(item.m.turn_id)" class="denied-hint">权限不足 · 可在右侧切换「自主」模式后重试</span>
             <button v-if="turnFailed(item.m.turn_id)" class="retry"
               :class="{ used: retriedTurns.has(item.m.turn_id) }"
               :disabled="retriedTurns.has(item.m.turn_id) || running"
@@ -281,6 +290,8 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .retry { padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; flex-shrink: 0; }
 .retry:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
 .retry.used, .retry:disabled { opacity: .45; cursor: default; }
+.denied-hint { font-size: 11px; color: #b98a4a; }
+.badge[data-status="denied"] { background: #463; color: #ffb84d; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
 .reply { align-self: stretch; }

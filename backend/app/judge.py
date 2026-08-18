@@ -12,7 +12,7 @@ import json
 import shlex
 from dataclasses import dataclass
 
-DONE, ERROR = "done", "error"
+DONE, ERROR, DENIED = "done", "error", "denied"
 
 
 @dataclass
@@ -50,7 +50,10 @@ async def decide_outcome(inp: JudgeInput, llm) -> tuple[str, str]:
         verdict = llm(inp)
         if inspect.isawaitable(verdict):
             verdict = await verdict
-        return (verdict if verdict in (DONE, ERROR) else ERROR), "llm"
+        if verdict == DONE:
+            return DONE, "llm"
+        # 没完成 + 有权限拒绝：是"需要授权"而非"坏了"（用户实测反馈的语义修正）
+        return (DENIED if inp.denied_count > 0 else ERROR), "llm"
     except Exception:
         return ERROR, "mechanical-fallback"
 

@@ -24,7 +24,7 @@ async def wait_turn_done(tmp_path, timeout=10.0):
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
         row = db.execute("SELECT status FROM turns").fetchone()
-        if row and row[0] in ("done", "error"):
+        if row and row[0] in ("done", "error", "denied"):
             return row[0]
         await asyncio.sleep(0.05)
     raise TimeoutError("turn 未在时限内收尾")
@@ -99,7 +99,7 @@ async def test_permission_denial_marks_error(client, tmp_path, monkeypatch):  # 
     sid = await create_session_with_fake_claude(client, tmp_path, "04-error.jsonl")
     await client.post(f"/api/sessions/{sid}/messages", json={"text": "读一个没权限的文件"})
     status = await wait_turn_done(tmp_path)
-    assert status == "error"
+    assert status == "denied"  # 被拒且未完成：denied 而非 error（语义修正）
 
     import sqlite3
 

@@ -47,13 +47,14 @@ async def test_denials_but_success_goes_to_llm():
     assert "统计事件分布" in calls[0].judge_prompt  # 判定必须看到原始任务
 
 
-async def test_llm_says_error_then_error():
-    """场景：04 形态——LLM 判定任务实际没完成。"""
+async def test_denied_when_llm_error_with_denials():
+    """场景：04/用户实测形态——被拒导致没完成。期望：denied（需授权），不是 error。"""
     verdict = await decide_outcome(
-        JudgeInput(is_error=False, denied_count=1, user_prompt="读文件", final_text="我无法读取..."),
+        JudgeInput(is_error=False, denied_count=1, user_prompt="删文档", final_text="我无法删除..."),
         llm=lambda _: "error",
     )
-    assert verdict == ("error", "llm")
+    assert verdict == ("denied", "llm")
+
 
 
 async def test_llm_failure_falls_back_conservative():
