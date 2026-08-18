@@ -1,0 +1,7 @@
+# backend
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+
+# runtime state（所有状态收敛于此，不入库）
+data/
