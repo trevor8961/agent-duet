@@ -21,7 +21,7 @@ async def client(tmp_path, monkeypatch):
     import app.db
     import app.main
 
-    order = ["app.db", "app.parser", "app.runner", "app.views", "app.routes", "app.seed", "app.main"]
+    order = ["app.db", "app.parser", "app.bus", "app.runner", "app.views", "app.routes", "app.seed", "app.main"]
     for name in order:
         importlib.reload(importlib.import_module(name))
 

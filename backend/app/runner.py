@@ -16,6 +16,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from .bus import bus
 from .db import DATA_DIR, SessionLocal
 from .judge import JudgeInput, decide_outcome, make_claude_judge
 from .models import Agent, Message, Session, Turn
@@ -60,13 +61,17 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,  # stderr 是噪声源（实测），不进流水
     )
-    async for raw_line in proc.stdout:
-        line = raw_line.decode(errors="replace").rstrip("\n")
-        lines.append(line)
+    # 增量落盘 + 增量发布：running 期间即可观测（L5 冒烟发现的可观测性缺陷）
+    with open(raw_path, "w") as f:
+        async for raw_line in proc.stdout:
+            line = raw_line.decode(errors="replace").rstrip("\n")
+            lines.append(line)
+            f.write(line + "\n")
+            f.flush()
+            if line.startswith("{"):
+                await bus.publish(session_id, "line", line)
     await proc.wait()
 
-    with open(raw_path, "w") as f:
-        f.write("\n".join(lines))
     cmd_path.write_text(" ".join(shlex.quote(c) for c in cmd))
 
     result = parse_stream(lines)
@@ -111,6 +116,8 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
         turn.num_turns = result.num_turns
         turn.duration_ms = result.duration_ms
         turn.raw_path = str(raw_path)
+
+        await bus.publish(session_id, "turn_done", {"turn_id": turn_id, "status": status})
 
         if status == "error":
             session = await db.get(Session, session_id)

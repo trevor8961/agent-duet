@@ -3,10 +3,12 @@
 import asyncio
 import json
 
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
+from .bus import bus
 from .db import SessionLocal
 from .models import Agent, Session, Turn
 from .views import get_session_detail, list_sessions
@@ -76,6 +78,21 @@ def register_routes(app):
     @app.get("/api/sessions")
     async def get_sessions(q: str | None = None):
         return await list_sessions(q)
+
+    @app.get("/api/sessions/{sid}/events")
+    async def sse_events(sid: int, last_event_id: str | None = Header(default=None)):
+        """SSE：turn 运行期间的实时事件流。
+
+        职责边界：只推增量（总线内存态）；历史真相走 raw 文件与 messages 表。
+        """
+
+        async def gen():
+            cursor = int(last_event_id) if last_event_id is not None else -1
+            async for ev in bus.subscribe(sid, cursor):
+                payload = json.dumps({"id": ev["id"], "kind": ev["kind"], "ts": ev["ts"], "data": ev["data"]})
+                yield f"id: {ev['id']}\nevent: {ev['kind']}\ndata: {payload}\n\n"
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
 
     @app.get("/api/sessions/{sid}")
     async def get_session(sid: int):

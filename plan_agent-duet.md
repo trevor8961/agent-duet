@@ -69,7 +69,9 @@ session。agent 借此获得记忆与成长。v1 不实现，但数据结构按�
         真机验证 guided 写文件被拒 → LLM 正确判 error
   - [x] 真机冒烟：真实 claude 全链路（建档→提问→分声部落库→--resume 续接）+ L4 模式对照 + L5 长任务（18轮/17工具/$0.64），
         data/raw/ 留有真实样本，session id 稳定复用
-  - [ ] SSE 实时推送（当前数据收完才能看，缺实时性）
+  - [x] SSE：app/bus.py 进程内事件总线 + runner 增量落盘/发布（顺带修复 L5 可观测性
+        缺陷：raw 不再缓冲到底）+ GET /api/sessions/{id}/events（Last-Event-ID 游标重连），
+        实时性/断线重连场景测试，31 passed
   - [ ] 最小页面：session 列表（时间/目录/话题/意图筛选）+ 对话页（分声部）
   - [ ] 接口增补：PATCH /sessions/{id}（改 mode/主题）、POST /sessions/{id}/cancel（中止子进程）
   - 验收标准：页面发起对话 → 思考与回复分开落库 → 重启后 session 可检索找回
