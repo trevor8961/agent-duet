@@ -47,6 +47,15 @@ function groupMessages(messages) {
   }
 }
 
+function toolTitle(p) {
+  // 标题用 agent 自己写的 description（它对这次动作的意图说明）
+  return p.input?.description || p.tool;
+}
+
+function toolCommand(p) {
+  return p.input?.command || null;
+}
+
 function parseContent(m) {
   try { return JSON.parse(m.content); } catch { return {}; }
 }
@@ -150,10 +159,11 @@ onUnmounted(() => es?.close());
           </div>
 
           <details v-else-if="item.kind === 'tool'" class="tool">
-            <summary>🔧 {{ item.payload.tool }}</summary>
+            <summary>🔧 {{ toolTitle(item.payload) }}</summary>
             <div class="term">
               <div class="term-bar"><i></i><i></i><i></i><span>{{ item.payload.tool }}</span></div>
-              <pre class="term-io">$ {{ JSON.stringify(item.payload.input) }}</pre>
+              <pre v-if="toolCommand(item.payload)" class="term-io">$ {{ toolCommand(item.payload) }}</pre>
+              <pre v-else class="term-io">$ {{ item.payload.tool }} {{ JSON.stringify(item.payload.input) }}</pre>
               <pre v-if="item.result" class="term-io" :data-err="parseContent(item.result).is_error">{{ parseContent(item.result).content }}</pre>
             </div>
           </details>
