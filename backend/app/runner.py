@@ -33,15 +33,19 @@ _cancel_flags: set[int] = set()  # 由 cancel 接口置位，execute_turn 收尾
 DEFAULT_INTENT = "询问"
 
 
-def build_command(agent: Agent, session: Session, prompt: str) -> list[str]:
-    """通用档位 → 原生参数的翻译发生在这里；返回值同时用于审计。"""
+def build_command(agent: Agent, session: Session, prompt: str, mode: str | None = None) -> list[str]:
+    """通用档位 → 原生参数的翻译发生在这里；返回值同时用于审计。
+
+    mode 显式传入时优先（轮次级一次性授权），否则用 session.mode。
+    """
+    mode = mode or session.mode
     mode_map = json.loads(agent.mode_map or "{}")
-    if session.mode not in mode_map:
+    if mode not in mode_map:
         # 显式失败，不静默 fallback（testing.md 第 3 层的场景之一）
         raise ValueError(f"mode '{session.mode}' 不在 profile '{agent.name}' 的 mode_map 中")
 
     cmd = shlex.split(agent.command)
-    for flag, value in mode_map[session.mode].items():
+    for flag, value in mode_map[mode].items():
         cmd += [f"--{flag}", value]
     if agent.model:
         cmd += ["--model", agent.model]

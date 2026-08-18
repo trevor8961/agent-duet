@@ -63,6 +63,24 @@ function turnFailed(turnId) {
 const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
 function statusText(s) { return STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s; }
 
+// 轮次级一次性授权：本轮以 autonomous 执行，会话模式不动，授权链留痕
+async function grantAndContinue(turnId) {
+  if (running.value) return;
+  running.value = true;
+  startWorking();
+  detail.value?.messages.push({
+    seq: 9e9 - 1, role: "user", channel: "text",
+    content: JSON.stringify({ text: "🔓（已授权本轮文件操作，继续）" }), turn_id: -1,
+  });
+  stickToBottom();
+  subscribe();
+  await fetch(`${API}/sessions/${props.id}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "继续执行刚才被拒的文件操作", mode_override: "autonomous", granted_from: turnId }),
+  });
+}
+
 async function retryTurn(turnId) {
   // 取该 turn 的用户原文，作为新一轮重新发起（--resume 续上下文）
   const first = detail.value?.messages?.find((m) => m.turn_id === turnId && m.role === "user");
@@ -225,6 +243,7 @@ onUnmounted(() => { es?.close(); stopWorking(); });
         <template v-for="item in turn.items" :key="item.seq">
           <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
             <span v-if="turnDenied(item.m.turn_id)" class="denied-hint">{{ t('deniedHint') }}</span>
+            <button v-if="turnDenied(item.m.turn_id)" class="grant" @click="grantAndContinue(item.m.turn_id)">🔓 {{ t('grant') }}</button>
             <button v-if="turnFailed(item.m.turn_id)" class="retry"
               :class="{ used: retriedTurns.has(item.m.turn_id) }"
               :disabled="retriedTurns.has(item.m.turn_id) || running"
@@ -292,6 +311,8 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .retry:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
 .retry.used, .retry:disabled { opacity: .45; cursor: default; }
 .denied-hint { font-size: 11px; color: #b98a4a; }
+.grant { padding: 4px 12px; border-radius: 99px; border: 1px solid #b98a4a; background: rgb(185 138 74 / 12%); color: #b98a4a; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.grant:hover:not(:disabled) { background: rgb(185 138 74 / 25%); }
 .badge[data-status="denied"] { background: #463; color: #ffb84d; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }

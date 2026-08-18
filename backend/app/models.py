@@ -85,6 +85,7 @@ class Turn(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     denied_count: Mapped[int | None] = mapped_column(Integer)  # 权限拒绝次数（L5 发现）
     outcome_source: Mapped[str | None]  # mechanical / llm / mechanical-fallback（判定审计）
+    granted_from: Mapped[int | None] = mapped_column(Integer)  # 本轮授权化解了哪次拒绝（授权链）
     raw_path: Mapped[str | None]  # 原始 stream-json 文件路径
     created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
 

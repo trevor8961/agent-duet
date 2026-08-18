@@ -35,6 +35,8 @@ class AgentPatch(BaseModel):
 
 class MessageCreate(BaseModel):
     text: str
+    mode_override: str | None = None  # 轮次级一次性授权：仅本轮生效
+    granted_from: int | None = None  # 授权链：化解了哪次拒绝
 
 
 def register_routes(app):
@@ -188,8 +190,10 @@ def register_routes(app):
                 raise HTTPException(409, "该会话已有正在运行的 turn")
             agent = await db.get(Agent, s.agent_id)
 
+            # 一次性授权：本轮用 override 模式跑，session.mode 不动
+            turn_mode = body.mode_override or s.mode
             try:
-                cmd = build_command(agent, s, body.text)
+                cmd = build_command(agent, s, body.text, mode=turn_mode)
             except ValueError as e:
                 raise HTTPException(400, str(e))
 
@@ -200,7 +204,8 @@ def register_routes(app):
                 select(func.max(Turn.seq)).where(Turn.session_id == sid)
             )) or 0
             turn = Turn(session_id=sid, seq=next_seq + 1, intent=DEFAULT_INTENT,
-                        status="running", effective_mode=native, model=agent.model)
+                        status="running", effective_mode=native, model=agent.model,
+                        granted_from=body.granted_from)
             db.add(turn)
             await db.flush()
 

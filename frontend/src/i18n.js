@@ -21,7 +21,8 @@ const DICT = {
     stDone: "完成", stRunning: "进行中", stError: "失败", stCancelled: "已取消", stDenied: "需授权",
     inputPh: "向 agent 提问…（⌘/Ctrl+Enter 发送）", send: "发送", stop: "■ 停止",
     thinking: "低声部（思考）", retry: "重试", retried: "已重试",
-    deniedHint: "权限不足 · 可在右侧切换「自主」模式后重试",
+    deniedHint: "权限不足",
+    grant: "授权并继续",
     working: "agent 工作中", emptyFlow: "这个会话还没有内容（可能是发出后即被取消，或尚未提问）",
   },
   en: {
@@ -43,7 +44,8 @@ const DICT = {
     stDone: "Done", stRunning: "Running", stError: "Failed", stCancelled: "Cancelled", stDenied: "Auth needed",
     inputPh: "Ask the agent… (⌘/Ctrl+Enter to send)", send: "Send", stop: "■ Stop",
     thinking: "Murmur (thinking)", retry: "Retry", retried: "Retried",
-    deniedHint: "Permission denied — switch to Autonomous mode on the right, then retry",
+    deniedHint: "Permission denied",
+    grant: "Grant & continue",
     working: "agent working", emptyFlow: "Nothing here yet (cancelled before output, or no question asked)",
   },
 };
