@@ -1,5 +1,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+// agent 回复是 Markdown 源码（终端的富渲染来自 claude 自带渲染器），
+// 页面负责渲染成 HTML；DOMPurify 消毒防 XSS（agent 输出不可信）
+marked.setOptions({ gfm: true, breaks: true });
+function renderMarkdown(text) {
+  return DOMPurify.sanitize(marked.parse(text ?? ""));
+}
 
 const props = defineProps({ id: Number });
 const emit = defineEmits(["back"]);
@@ -135,8 +144,9 @@ onUnmounted(() => es?.close());
             <pre>{{ parseContent(item.m).text }}</pre>
           </details>
 
-          <div v-else-if="item.kind === 'bubble'" class="bubble agent">
-            <pre>{{ parseContent(item.m).text }}</pre>
+          <div v-else-if="item.kind === 'bubble'" class="bubble agent md">
+            <!-- eslint-disable-next-line vue/no-v-html -- 已 DOMPurify 消毒 -->
+            <div v-html="renderMarkdown(parseContent(item.m).text)"></div>
           </div>
 
           <details v-else-if="item.kind === 'tool'" class="tool">
@@ -173,6 +183,14 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
+.md :deep(table) { border-collapse: collapse; margin: 8px 0; }
+.md :deep(th), .md :deep(td) { border: 1px solid #3a3f47; padding: 4px 10px; font-size: 13px; }
+.md :deep(th) { background: #23272e; }
+.md :deep(code) { background: #23272e; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+.md :deep(pre code) { display: block; padding: 10px; overflow-x: auto; }
+.md :deep(blockquote) { border-left: 3px solid #3a4a5c; margin: 6px 0; padding: 2px 12px; color: #9aa; }
+.md :deep(h1), .md :deep(h2), .md :deep(h3) { margin: 8px 0 4px; }
+.md :deep(p) { margin: 6px 0; }
 .thinking { align-self: flex-start; font-size: 13px; color: #8a7f6f; max-width: 90%; }
 .thinking summary { cursor: pointer; color: #6f6a5f; }
 .thinking pre { margin: 6px 0 0; padding: 8px; background: #17150f; border-radius: 8px; white-space: pre-wrap; color: #a89c85; }
