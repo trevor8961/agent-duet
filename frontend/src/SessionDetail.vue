@@ -2,6 +2,7 @@
 import { nextTick, ref, onMounted, onUnmounted } from "vue";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { t } from "./i18n";
 
 // agent 回复是 Markdown 源码（终端的富渲染来自 claude 自带渲染器），
 // 页面负责渲染成 HTML；DOMPurify 消毒防 XSS（agent 输出不可信）
@@ -59,8 +60,8 @@ function turnFailed(turnId) {
   return t && ["error", "cancelled", "denied"].includes(t.status);
 }
 
-const STATUS_TEXT = { denied: "需授权", error: "失败", cancelled: "已取消", done: "完成", running: "进行中" };
-function statusText(s) { return STATUS_TEXT[s] ?? s; }
+const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
+function statusText(s) { return STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s; }
 
 async function retryTurn(turnId) {
   // 取该 turn 的用户原文，作为新一轮重新发起（--resume 续上下文）
@@ -218,22 +219,22 @@ onUnmounted(() => { es?.close(); stopWorking(); });
 
     <div class="flow" ref="flowEl">
       <div v-if="!detail.messages.length" class="empty">
-        这个会话还没有内容（可能是发出后即被取消，或尚未提问）
+        {{ t('emptyFlow') }}
       </div>
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <template v-for="item in turn.items" :key="item.seq">
           <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
-            <span v-if="turnDenied(item.m.turn_id)" class="denied-hint">权限不足 · 可在右侧切换「自主」模式后重试</span>
+            <span v-if="turnDenied(item.m.turn_id)" class="denied-hint">{{ t('deniedHint') }}</span>
             <button v-if="turnFailed(item.m.turn_id)" class="retry"
               :class="{ used: retriedTurns.has(item.m.turn_id) }"
               :disabled="retriedTurns.has(item.m.turn_id) || running"
-              :title="retriedTurns.has(item.m.turn_id) ? '已重试过' : '重新发起这一轮'"
-              @click="retryTurn(item.m.turn_id)">↻ {{ retriedTurns.has(item.m.turn_id) ? '已重试' : '重试' }}</button>
+              :title="retriedTurns.has(item.m.turn_id) ? t('retried') : t('retry')"
+              @click="retryTurn(item.m.turn_id)">↻ {{ retriedTurns.has(item.m.turn_id) ? t('retried') : t('retry') }}</button>
             <div class="bubble user">{{ parseContent(item.m).text }}</div>
           </div>
 
           <details v-else-if="item.kind === 'thinking'" class="thinking">
-            <summary>💭 低声部（思考）</summary>
+            <summary>💭 {{ t("thinking") }}</summary>
             <div class="thinking-body md-inline" v-html="renderMarkdown(parseContent(item.m).text)"></div>
           </details>
 
@@ -259,16 +260,16 @@ onUnmounted(() => { es?.close(); stopWorking(); });
       </template>
       <div v-if="running" class="working">
         <span class="pulse"></span>
-        <span>agent 工作中 · {{ elapsed }}s</span>
+        <span>{{ t('working') }} · {{ elapsed }}s</span>
         <span v-if="thinkingTokens" class="tk">💭 {{ thinkingTokens }} tokens</span>
       </div>
     </div>
 
     <footer>
-      <textarea v-model="input" :disabled="running" placeholder="向 agent 提问…（⌘/Ctrl+Enter 发送）"
+      <textarea v-model="input" :disabled="running" :placeholder="t('inputPh')"
         @keydown="onKeydown"></textarea>
-      <button v-if="running" class="danger" @click="cancel">■ 停止</button>
-      <button v-else class="primary" @click="send" :disabled="!input.trim()">发送</button>
+      <button v-if="running" class="danger" @click="cancel">{{ t("stop") }}</button>
+      <button v-else class="primary" @click="send" :disabled="!input.trim()">{{ t("send") }}</button>
     </footer>
   </div>
 </template>
