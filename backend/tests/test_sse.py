@@ -59,12 +59,14 @@ async def test_sse_streams_events_in_realtime(client, tmp_path):
     assert kinds[-1] == "turn_done"
     assert kinds.count("line") > 0  # 有原始事件行推过来
 
-    # 实时性：首个 line 事件到达时 turn_done 还没发生（时间戳单调）
+    # 注意：ASGITransport 会缓冲流式响应，这里的 ts 是「服务端发布时刻」，
+    # 验证的是事件在时间轴上确实分散产生（而非同一瞬间批量生成），
+    # 传输层的真·实时性由真机（浏览器 EventSource）验证
     ts = [e["ts"] for e in events if e.get("ts")]
     assert ts == sorted(ts)
     first_line = next(e for e in events if e.get("kind") == "line")
     done = events[-1]
-    assert done["ts"] - first_line["ts"] > 0.5  # 间隔显著大于 0（非一次性吐）
+    assert done["ts"] - first_line["ts"] > 0.5
 
 
 async def test_sse_replay_from_cursor(client, tmp_path):

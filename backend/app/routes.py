@@ -12,7 +12,7 @@ from .bus import bus
 from .db import SessionLocal
 from .models import Agent, Session, Turn
 from .views import get_session_detail, list_sessions
-from .runner import DEFAULT_INTENT, build_command, execute_turn
+from .runner import DEFAULT_INTENT, _cancel_flags, _running, build_command, execute_turn
 
 
 class SessionCreate(BaseModel):
@@ -78,6 +78,19 @@ def register_routes(app):
     @app.get("/api/sessions")
     async def get_sessions(q: str | None = None):
         return await list_sessions(q)
+
+    @app.post("/api/sessions/{sid}/cancel")
+    async def cancel_session(sid: int):
+        """中止运行中的 turn。无运行时幂等返回当前状态。"""
+        entry = _running.get(sid)
+        if not entry:
+            async with SessionLocal() as db:
+                s = await db.get(Session, sid)
+                return {"status": s.status if s else "idle"}
+        proc, _ = entry
+        _cancel_flags.add(sid)
+        proc.terminate()  # SIGTERM；claude 收到后退出，execute_turn 收尾时按 cancelled 落库
+        return {"status": "cancelling"}
 
     @app.get("/api/sessions/{sid}/events")
     async def sse_events(sid: int, last_event_id: str | None = Header(default=None)):

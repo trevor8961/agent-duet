@@ -25,6 +25,10 @@ from .parser import parse_stream
 # 判定用的 LLM 工厂（注入点：测试换假实现，避免真调 claude）
 _judge_factory = make_claude_judge
 
+# 运行中进程注册表：session_id -> (proc, turn_id)，cancel 的作用对象
+_running: dict[int, tuple] = {}
+_cancel_flags: set[int] = set()  # 由 cancel 接口置位，execute_turn 收尾时消费
+
 # 意图判定模块未落地前的占位（testing.md 第 4 层届时替换）
 DEFAULT_INTENT = "询问"
 
@@ -61,6 +65,7 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,  # stderr 是噪声源（实测），不进流水
     )
+    _running[session_id] = (proc, turn_id)
     # 增量落盘 + 增量发布：running 期间即可观测（L5 冒烟发现的可观测性缺陷）
     with open(raw_path, "w") as f:
         async for raw_line in proc.stdout:
@@ -71,8 +76,22 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
             if line.startswith("{"):
                 await bus.publish(session_id, "line", line)
     await proc.wait()
+    cancelled = session_id in _cancel_flags
+    _running.pop(session_id, None)
+    _cancel_flags.discard(session_id)
 
     cmd_path.write_text(" ".join(shlex.quote(c) for c in cmd))
+
+    if cancelled:
+        async with SessionLocal() as db:
+            turn = await db.get(Turn, turn_id)
+            turn.status = "cancelled"
+            turn.raw_path = str(raw_path)
+            session = await db.get(Session, session_id)
+            session.status = "cancelled"
+            await db.commit()
+        await bus.publish(session_id, "turn_done", {"turn_id": turn_id, "status": "cancelled"})
+        return
 
     result = parse_stream(lines)
 
