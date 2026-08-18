@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { nextTick, ref, onMounted, onUnmounted } from "vue";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
@@ -15,6 +15,14 @@ const emit = defineEmits(["back", "loaded"]);
 
 const API = "/api";
 const detail = ref(null);
+const flowEl = ref(null);
+
+// 新内容到达时贴底（对话界面的基本礼仪：跟着最新走）
+async function stickToBottom() {
+  await nextTick();
+  const el = flowEl.value;
+  if (el) el.scrollTop = el.scrollHeight;
+}
 const input = ref("");
 const running = ref(false);
 let es = null;
@@ -89,12 +97,13 @@ function subscribe() {
               content: JSON.stringify({ text: block.text || block.thinking }),
               turn_id: -1,
             });
+            stickToBottom();
           }
         }
       }
     } catch { /* 未知行忽略，与后端解析器同一原则 */ }
   });
-  es.addEventListener("turn_done", () => { es?.close(); es = null; load(); });
+  es.addEventListener("turn_done", () => { es?.close(); es = null; load().then(stickToBottom); });
 }
 
 function onKeydown(e) {
@@ -116,6 +125,7 @@ async function send() {
     seq: 9e9 - 1, role: "user", channel: "text",
     content: JSON.stringify({ text }), turn_id: -1,
   });
+  stickToBottom();
   subscribe();
   await fetch(`${API}/sessions/${props.id}/messages`, {
     method: "POST",
@@ -141,7 +151,7 @@ onUnmounted(() => es?.close());
       <span class="mode">{{ detail.mode }}</span>
     </header>
 
-    <div class="flow">
+    <div class="flow" ref="flowEl">
       <div v-if="!detail.messages.length" class="empty">
         这个会话还没有内容（可能是发出后即被取消，或尚未提问）
       </div>
