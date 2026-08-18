@@ -133,7 +133,8 @@ async def get_session_detail(session_id: int) -> dict | None:
         "turns": [
             {"id": t.id, "seq": t.seq, "intent": t.intent, "status": t.status,
              "effective_mode": t.effective_mode, "total_cost_usd": t.total_cost_usd,
-             "num_turns": t.num_turns, "duration_ms": t.duration_ms}
+             "num_turns": t.num_turns, "duration_ms": t.duration_ms,
+             "granted_from": t.granted_from}
             for t in turns
         ],
         "messages": [

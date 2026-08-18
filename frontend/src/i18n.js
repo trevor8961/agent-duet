@@ -23,6 +23,7 @@ const DICT = {
     thinking: "低声部（思考）", retry: "重试", retried: "已重试",
     deniedHint: "权限不足",
     grant: "授权并继续",
+    granted: "已授权",
     working: "agent 工作中", emptyFlow: "这个会话还没有内容（可能是发出后即被取消，或尚未提问）",
   },
   en: {
@@ -46,6 +47,7 @@ const DICT = {
     thinking: "Murmur (thinking)", retry: "Retry", retried: "Retried",
     deniedHint: "Permission denied",
     grant: "Grant & continue",
+    granted: "Granted",
     working: "agent working", emptyFlow: "Nothing here yet (cancelled before output, or no question asked)",
   },
 };

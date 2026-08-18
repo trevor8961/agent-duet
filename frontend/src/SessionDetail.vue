@@ -31,6 +31,11 @@ let es = null;
 // 回复折叠：默认仅最新一条展开；用户手动开/关按 seq 记住
 const replyOverrides = ref({});
 const retriedTurns = ref(new Set()); // 已重试过的 turn，按钮置灰
+
+// 授权状态从数据推导：任何 turn 的 granted_from 指向它，即已被授权过
+function turnGranted(turnId) {
+  return (detail.value?.turns ?? []).some((t) => t.granted_from === turnId);
+}
 const elapsed = ref(0); // 运行耗时（秒）
 const thinkingTokens = ref(0); // 最近一次思考进度（来自 thinking_tokens 心跳）
 let elapsedTimer = null;
@@ -243,7 +248,12 @@ onUnmounted(() => { es?.close(); stopWorking(); });
         <template v-for="item in turn.items" :key="item.seq">
           <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
             <span v-if="turnDenied(item.m.turn_id)" class="denied-hint">{{ t('deniedHint') }}</span>
-            <button v-if="turnDenied(item.m.turn_id)" class="grant" @click="grantAndContinue(item.m.turn_id)">🔓 {{ t('grant') }}</button>
+            <button v-if="turnDenied(item.m.turn_id)" class="grant"
+              :class="{ granted: turnGranted(item.m.turn_id) }"
+              :disabled="turnGranted(item.m.turn_id) || running"
+              @click="grantAndContinue(item.m.turn_id)">
+              {{ turnGranted(item.m.turn_id) ? '✓ ' + t('granted') : '🔓 ' + t('grant') }}
+            </button>
             <button v-if="turnFailed(item.m.turn_id)" class="retry"
               :class="{ used: retriedTurns.has(item.m.turn_id) }"
               :disabled="retriedTurns.has(item.m.turn_id) || running"
@@ -313,6 +323,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .denied-hint { font-size: 11px; color: #b98a4a; }
 .grant { padding: 4px 12px; border-radius: 99px; border: 1px solid #b98a4a; background: rgb(185 138 74 / 12%); color: #b98a4a; cursor: pointer; font-size: 12px; flex-shrink: 0; }
 .grant:hover:not(:disabled) { background: rgb(185 138 74 / 25%); }
+.grant.granted { border-color: #4a9e5c; color: #4a9e5c; background: rgb(74 158 92 / 10%); cursor: default; opacity: .8; }
 .badge[data-status="denied"] { background: #463; color: #ffb84d; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
