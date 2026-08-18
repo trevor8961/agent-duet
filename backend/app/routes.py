@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 
 from .bus import bus
 from .db import SessionLocal
-from .models import Agent, Session, Turn
+from .models import Agent, Message, Session, Turn
 from .views import get_session_detail, list_sessions
 from .runner import DEFAULT_INTENT, _cancel_flags, _running, build_command, execute_turn
 
@@ -161,6 +161,15 @@ def register_routes(app):
             turn = Turn(session_id=sid, seq=next_seq + 1, intent=DEFAULT_INTENT,
                         status="running", effective_mode=native, model=agent.model)
             db.add(turn)
+            await db.flush()
+
+            # 用户消息在 turn 创建时立即落库（崩溃安全；刷新页面也能看到自己的提问）
+            msg_seq = (await db.scalar(
+                select(func.max(Message.seq)).where(Message.session_id == sid)
+            )) or 0
+            db.add(Message(session_id=sid, turn_id=turn.id, seq=msg_seq + 1,
+                           role="user", channel="text",
+                           content=json.dumps({"text": body.text}, ensure_ascii=False)))
             s.status = "running"
             await db.commit()
             turn_id = turn.id

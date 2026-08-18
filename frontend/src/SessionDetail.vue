@@ -27,6 +27,21 @@ const input = ref("");
 const running = ref(false);
 let es = null;
 
+// 回复折叠：默认仅最新一条展开；用户手动开/关按 seq 记住
+const replyOverrides = ref({});
+function replyOpen(m) {
+  if (m.seq in replyOverrides.value) return replyOverrides.value[m.seq];
+  const texts = (detail.value?.messages ?? []).filter((x) => x.channel === "text" && x.role === "assistant");
+  const lastSeq = texts.length ? texts[texts.length - 1].seq : -1;
+  return m.seq === lastSeq;
+}
+function onReplyToggle(m, e) {
+  replyOverrides.value = { ...replyOverrides.value, [m.seq]: e.target.open };
+}
+function replySnippet(m) {
+  return (parseContent(m).text ?? "").replace(/[#*`>|\n]/g, " ").trim().slice(0, 50) || "回复";
+}
+
 // 前端按 channel 分声部渲染：条目按 seq 排序，工具块插回真实时序位置
 // （实测 agent 会并行发多个工具调用、回复和工具交替出现，渲染必须尊重 seq）
 function groupMessages(messages) {
@@ -138,7 +153,12 @@ async function cancel() {
   await fetch(`${API}/sessions/${props.id}/cancel`, { method: "POST" });
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  await stickToBottom();
+  // 刷新/中途进入正在运行的会话：接上实时流
+  if (detail.value?.status === "running") subscribe();
+});
 onUnmounted(() => es?.close());
 </script>
 
@@ -166,10 +186,14 @@ onUnmounted(() => es?.close());
             <div class="thinking-body md-inline" v-html="renderMarkdown(parseContent(item.m).text)"></div>
           </details>
 
-          <div v-else-if="item.kind === 'bubble'" class="bubble agent md">
-            <!-- eslint-disable-next-line vue/no-v-html -- 已 DOMPurify 消毒 -->
-            <div v-html="renderMarkdown(parseContent(item.m).text)"></div>
-          </div>
+          <details v-else-if="item.kind === 'bubble'" class="reply" :open="replyOpen(item.m)"
+            @toggle="onReplyToggle(item.m, $event)">
+            <summary class="reply-head">📄 {{ replySnippet(item.m) }}…</summary>
+            <div class="bubble agent md">
+              <!-- eslint-disable-next-line vue/no-v-html -- 已 DOMPurify 消毒 -->
+              <div v-html="renderMarkdown(parseContent(item.m).text)"></div>
+            </div>
+          </details>
 
           <details v-else-if="item.kind === 'tool'" class="tool">
             <summary>🔧 {{ toolTitle(item.payload) }}</summary>
@@ -208,6 +232,13 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
+.reply { align-self: stretch; }
+.reply-head { cursor: pointer; color: var(--text-faint); font-size: 12px; padding: 4px 6px; border-radius: 6px; list-style: none; }
+.reply-head::-webkit-details-marker { display: none; }
+.reply-head::before { content: "▸ "; }
+.reply[open] > .reply-head::before { content: "▾ "; }
+.reply-head:hover { background: var(--hover); color: var(--text-dim); }
+.reply .bubble { margin-top: 4px; }
 /* ---- claude-like Markdown 移植（色板取自 Xv-Bowen/claude-like-typora-theme）----
    暗色舞台 + 米色纸卡：agent 回复是一张"纸" */
 .bubble.agent.md {

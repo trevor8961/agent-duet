@@ -129,11 +129,7 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
     async with SessionLocal() as db:
         # seq 接续：取当前最大值（并发 turn 不存在——每 session 同时只跑一个）
         max_seq = (await db.scalar(select(func.max(Message.seq)).where(Message.session_id == session_id))) or 0
-        rows = [
-            Message(session_id=session_id, turn_id=turn_id, seq=max_seq + 1,
-                    role="user", channel="text",
-                    content=json.dumps({"text": prompt}, ensure_ascii=False))
-        ]
+        rows = []  # 用户消息已由 post_message 落库，这里只落 agent 产出
         for m in result.messages:
             max_seq += 1
             rows.append(Message(session_id=session_id, turn_id=turn_id, seq=max_seq + 1,
