@@ -54,9 +54,11 @@ async function load() {
   try {
     const r = await fetch(`${API}/sessions/${props.id}`);
     if (!r.ok) return;
-  } catch { return; }
-  detail.value = await r.json();
-  running.value = detail.value.status === "running";
+    detail.value = await r.json();
+    running.value = detail.value.status === "running";
+  } catch {
+    // 网络瞬断等场景：不清空已有内容，下次 turn_done/手动操作再刷新
+  }
 }
 
 function subscribe() {
