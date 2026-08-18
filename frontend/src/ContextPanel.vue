@@ -110,7 +110,7 @@ watch(() => props.detail?.messages?.length, loadGit);
             <i class="tri"></i>
             <span>{{ t("changes") }} · {{ git.changes.length }} {{ t("filesChanged") }}</span>
           </div>
-          <div v-if="showChanges && git.changes.length" class="changes scroll-list">
+          <div v-if="showChanges && git.changes.length" class="changes">
             <div v-for="c in git.changes" :key="c.path" class="chg" :data-st="c.status" :title="c.path">
               <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
             </div>
@@ -180,7 +180,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .chg-toggle:hover { color: var(--text); }
 .chg-toggle.dirty .tri { border-top-color: var(--accent); }
 .tri { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; flex-shrink: 0; }
-.changes { }
+.changes { max-height: 22vh; overflow-y: auto; padding-bottom: 4px; }  /* branch/remote 固定两行，changes 占弹性区 */
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
