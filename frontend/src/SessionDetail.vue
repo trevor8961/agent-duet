@@ -83,10 +83,12 @@ function subscribe() {
   es.addEventListener("turn_done", () => { es?.close(); es = null; load(); });
 }
 
-function onEnter(e) {
-  // 输入法组合中（含 keyCode 229 兼容旧实现）不发送
-  if (e.isComposing || e.keyCode === 229) return;
-  send();
+function onKeydown(e) {
+  // 仅 ⌘/Ctrl+Enter 发送；Enter 留给换行与输入法选词
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault(); // 阻止换行，但不拦组合期（IME 下组合键不会触发提交语义）
+    if (!(e.isComposing || e.keyCode === 229)) send();
+  }
 }
 
 async function send() {
@@ -151,8 +153,8 @@ onUnmounted(() => es?.close());
     </div>
 
     <footer>
-      <textarea v-model="input" :disabled="running" placeholder="向 agent 提问…（Enter 发送）"
-        @keydown.enter.exact.prevent="onEnter($event)"></textarea>
+      <textarea v-model="input" :disabled="running" placeholder="向 agent 提问…（⌘/Ctrl+Enter 发送）"
+        @keydown="onKeydown"></textarea>
       <button v-if="running" class="danger" @click="cancel">■ 停止</button>
       <button v-else class="primary" @click="send" :disabled="!input.trim()">发送</button>
     </footer>
