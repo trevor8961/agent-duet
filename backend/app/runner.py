@@ -83,7 +83,21 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
     cmd_path.write_text(" ".join(shlex.quote(c) for c in cmd))
 
     if cancelled:
+        # 取消也要落库已产出的消息（原始优先原则：用户回看时能看到部分输出）
+        result = parse_stream(lines)
         async with SessionLocal() as db:
+            max_seq = (await db.scalar(select(func.max(Message.seq)).where(Message.session_id == session_id))) or 0
+            rows = [
+                Message(session_id=session_id, turn_id=turn_id, seq=max_seq + 1,
+                        role="user", channel="text",
+                        content=json.dumps({"text": prompt}, ensure_ascii=False))
+            ]
+            for m in result.messages:
+                max_seq += 1
+                rows.append(Message(session_id=session_id, turn_id=turn_id, seq=max_seq + 1,
+                                    role=m.role, channel=m.channel, content=m.content,
+                                    tool_use_id=m.tool_use_id))
+            db.add_all(rows)
             turn = await db.get(Turn, turn_id)
             turn.status = "cancelled"
             turn.raw_path = str(raw_path)

@@ -57,6 +57,14 @@ async def test_cancel_mid_run(client, tmp_path):
     raw = list((tmp_path / "raw").rglob("*.jsonl"))
     assert raw and raw[0].stat().st_size > 0
 
+    # 回看场景（用户实测踩坑）：取消的 turn 也必须有 messages 落库，
+    # 否则点开历史会话一片空白
+    db = sqlite3.connect(tmp_path / "agent-duet.db")
+    rows = db.execute("SELECT role, channel FROM messages ORDER BY seq").fetchall()
+    channels = [r[1] for r in rows]
+    assert ("user", "text") in rows, "用户输入必须落库"
+    assert "thinking" in channels or "text" in channels, "已产出的 agent 输出必须落库"
+
 
 async def test_cancel_without_running_turn(client, tmp_path):
     """场景：没有在跑的 turn 时点停止。期望：幂等成功，不炸。"""

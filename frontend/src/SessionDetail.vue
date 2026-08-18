@@ -127,6 +127,9 @@ onUnmounted(() => es?.close());
     </header>
 
     <div class="flow">
+      <div v-if="!detail.messages.length" class="empty">
+        这个会话还没有内容（可能是发出后即被取消，或尚未提问）
+      </div>
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <template v-for="m in turn.msgs" :key="m.seq">
           <div v-if="m.role === 'user' && m.channel === 'text'" class="bubble user">
@@ -171,6 +174,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .badge[data-status="error"] { background: #411; color: #f99; }
 .badge[data-status="cancelled"] { background: #234; color: #99f; }
 .flow { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; }
+.empty { color: #666; text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
 .bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
