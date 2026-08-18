@@ -20,6 +20,7 @@ async def test_git_status_of_repo(client, tmp_path):
     _git(repo, "add", "a.txt")
     _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
     (repo / "b.txt").write_text("uncommitted")
+    # 无远端仓库：upstream 为 None，ahead/behind 为 0（不因缺远端而报错）
 
     agents = (await client.get("/api/agents")).json()
     resp = await client.post("/api/sessions", json={
@@ -32,6 +33,8 @@ async def test_git_status_of_repo(client, tmp_path):
     data = r.json()
     assert data["is_repo"] is True
     assert data["branch"] == "feature-x"
+    assert data["upstream"] is None  # 本地裸仓库无远端
+    assert data["ahead"] == 0 and data["behind"] == 0
     assert {"path": "b.txt", "status": "??", "staged": False} in data["changes"]
 
 

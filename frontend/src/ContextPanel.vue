@@ -15,6 +15,8 @@ const git = ref(null);
 
 // 块折叠状态持久化（记住用户想看哪些块）
 const BLOCKS = ["mode", "info", "git", "turns", "activity"];
+const showChanges = ref(false); // 变更列表默认折叠，只显示计数
+
 const openBlocks = ref(
   new Set(JSON.parse(localStorage.getItem("ad-ctx-blocks") || '["mode","info","git","turns"]'))
 );
@@ -92,12 +94,21 @@ watch(() => props.detail?.messages?.length, loadGit);
       <div v-show="openBlocks.has('git')" class="body">
         <template v-if="git?.is_repo">
           <div class="kv"><span>分支</span><b class="branch">{{ git.branch }}</b></div>
-          <div class="kv"><span>变更</span><span>{{ git.changes.length }} 个文件</span></div>
-          <div v-if="git.changes.length" class="changes">
-            <div v-for="c in git.changes.slice(0, 8)" :key="c.path" class="chg" :data-st="c.status">
+          <div v-if="git.upstream" class="kv"><span>远端</span>
+            <span class="upstream">
+              {{ git.upstream }}
+              <i v-if="git.ahead" class="ab ahead">↑{{ git.ahead }}</i>
+              <i v-if="git.behind" class="ab behind">↓{{ git.behind }}</i>
+            </span>
+          </div>
+          <div class="chg-toggle" :class="{ dirty: git.changes.length }" @click="showChanges = !showChanges">
+            <i class="tri"></i>
+            <span>变更 · {{ git.changes.length }} 个文件</span>
+          </div>
+          <div v-if="showChanges && git.changes.length" class="changes">
+            <div v-for="c in git.changes" :key="c.path" class="chg" :data-st="c.status" :title="c.path">
               <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
             </div>
-            <div v-if="git.changes.length > 8" class="more">…还有 {{ git.changes.length - 8 }} 个</div>
           </div>
         </template>
         <div v-else class="none">非 git 仓库</div>
@@ -157,6 +168,15 @@ watch(() => props.detail?.messages?.length, loadGit);
 .modes button.active { border-color: var(--accent); background: var(--surface-2); color: var(--text); font-weight: 700; }
 
 .branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.upstream { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text-dim); display: inline-flex; gap: 4px; align-items: center; }
+.ab { font-style: normal; font-size: 10px; padding: 0 5px; border-radius: 4px; }
+.ab.ahead { background: rgb(74 158 92 / 22%); color: #4a9e5c; }
+.ab.behind { background: rgb(204 125 94 / 22%); color: #b96a4a; }
+.chg-toggle { display: flex; align-items: center; gap: 6px; padding: 5px 0 2px; cursor: pointer; font-size: 12px; color: var(--text-dim); user-select: none; }
+.chg-toggle:hover { color: var(--text); }
+.chg-toggle.dirty .tri { border-top-color: var(--accent); }
+.tri { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; flex-shrink: 0; }
+.changes { max-height: 260px; overflow-y: auto; }
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

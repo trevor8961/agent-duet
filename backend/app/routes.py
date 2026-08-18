@@ -97,6 +97,18 @@ def register_routes(app):
             return {"is_repo": False}
 
         branch = run("branch", "--show-current").stdout.strip() or "(detached)"
+
+        # 远端跟踪与 ahead/behind：status -sb 首行形如 "## mcp...origin/mcp [ahead 2]"
+        upstream, ahead, behind = None, 0, 0
+        head_line = run("status", "-sb").stdout.splitlines()[:1]
+        if head_line and "..." in head_line[0]:
+            tracking = head_line[0][3:].split(" ")
+            upstream = tracking[0].split("...")[-1] or None
+            if len(tracking) > 1 and "ahead" in tracking[1]:
+                ahead = int(tracking[1].split("ahead ")[-1])
+            if len(tracking) > 1 and "behind" in tracking[1]:
+                behind = int(tracking[1].split("behind ")[-1])
+
         changes = []
         for line in run("status", "--porcelain").stdout.splitlines():
             if len(line) >= 4:
@@ -105,7 +117,8 @@ def register_routes(app):
                     "staged": line[0] not in (" ", "?"),
                     "path": line[3:],
                 })
-        return {"is_repo": True, "branch": branch, "changes": changes}
+        return {"is_repo": True, "branch": branch, "upstream": upstream,
+                "ahead": ahead, "behind": behind, "changes": changes}
 
     @app.post("/api/sessions/{sid}/cancel")
     async def cancel_session(sid: int):
