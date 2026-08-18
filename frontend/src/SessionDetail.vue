@@ -35,6 +35,19 @@ function replyOpen(m) {
   const lastSeq = texts.length ? texts[texts.length - 1].seq : -1;
   return m.seq === lastSeq;
 }
+function turnFailed(turnId) {
+  const t = detail.value?.turns?.find((x) => x.id === turnId);
+  return t && (t.status === "error" || t.status === "cancelled");
+}
+
+async function retryTurn(turnId) {
+  // 取该 turn 的用户原文，作为新一轮重新发起（--resume 续上下文）
+  const first = detail.value?.messages?.find((m) => m.turn_id === turnId && m.role === "user");
+  if (!first || running.value) return;
+  input.value = parseContent(first).text ?? "";
+  await send();
+}
+
 function onReplyToggle(m, e) {
   replyOverrides.value = { ...replyOverrides.value, [m.seq]: e.target.open };
 }
@@ -177,8 +190,10 @@ onUnmounted(() => es?.close());
       </div>
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <template v-for="item in turn.items" :key="item.seq">
-          <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="bubble user">
-            {{ parseContent(item.m).text }}
+          <div v-if="item.kind === 'bubble' && item.m.role === 'user'" class="user-row">
+            <button v-if="turnFailed(item.m.turn_id)" class="retry" title="重新发起这一轮"
+              @click="retryTurn(item.m.turn_id)">↻ 重试</button>
+            <div class="bubble user">{{ parseContent(item.m).text }}</div>
           </div>
 
           <details v-else-if="item.kind === 'thinking'" class="thinking">
@@ -229,7 +244,10 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .flow { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; }
 .empty { color: var(--text-faint); text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
-.bubble.user { align-self: flex-end; background: #2b5387; color: #fff; }
+.user-row { align-self: flex-end; display: flex; align-items: center; gap: 8px; max-width: 85%; }
+.user-row .bubble.user { background: #2b5387; color: #fff; }
+.retry { padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.retry:hover { border-color: var(--accent); color: var(--text); }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
 .reply { align-self: stretch; }
