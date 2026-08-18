@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import subprocess
 
 from fastapi import BackgroundTasks, Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -78,6 +79,33 @@ def register_routes(app):
     @app.get("/api/sessions")
     async def get_sessions(q: str | None = None):
         return await list_sessions(q)
+
+    @app.get("/api/sessions/{sid}/git")
+    async def session_git_status(sid: int):
+        """工作区 git 状态：DB 说 agent 说了什么，git 说世界变成了什么样。"""
+        async with SessionLocal() as db:
+            s = await db.get(Session, sid)
+            cwd = s.cwd if s else None
+        if not cwd:
+            raise HTTPException(404)
+
+        def run(*args):
+            return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+
+        # git 的并发/超时风险在本地单用户场景可接受；命令白名单固定三条
+        if run("rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+            return {"is_repo": False}
+
+        branch = run("branch", "--show-current").stdout.strip() or "(detached)"
+        changes = []
+        for line in run("status", "--porcelain").stdout.splitlines():
+            if len(line) >= 4:
+                changes.append({
+                    "status": line[:2].strip(),
+                    "staged": line[0] not in (" ", "?"),
+                    "path": line[3:],
+                })
+        return {"is_repo": True, "branch": branch, "changes": changes}
 
     @app.post("/api/sessions/{sid}/cancel")
     async def cancel_session(sid: int):

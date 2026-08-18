@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 
 const props = defineProps({ id: Number, detail: Object });
 
@@ -11,6 +11,13 @@ const MODES = [
 ];
 
 const saving = ref(false);
+const git = ref(null);
+
+async function loadGit() {
+  try {
+    git.value = await (await fetch(`/api/sessions/${props.id}/git`)).json();
+  } catch { /* 面板信息缺失不致命 */ }
+}
 
 // 活动摘要：从 messages 的 tool_use 聚合动过的文件与命令
 function activity(detail) {
@@ -51,6 +58,21 @@ defineExpose({});
       <div class="kv"><span>目录</span><code>{{ detail.cwd }}</code></div>
       <div class="kv"><span>状态</span><b :data-status="detail.status">{{ detail.status }}</b></div>
       <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? "已关联" : "未关联" }}</span></div>
+    </div>
+
+    <div class="block">
+      <div class="title">工作区</div>
+      <template v-if="git?.is_repo">
+        <div class="kv"><span>分支</span><b class="branch">{{ git.branch }}</b></div>
+        <div class="kv"><span>变更</span><span>{{ git.changes.length }} 个文件</span></div>
+        <div v-if="git.changes.length" class="changes">
+          <div v-for="c in git.changes.slice(0, 8)" :key="c.path" class="chg" :data-st="c.status">
+            <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
+          </div>
+          <div v-if="git.changes.length > 8" class="more">…还有 {{ git.changes.length - 8 }} 个</div>
+        </div>
+      </template>
+      <div v-else class="none">非 git 仓库</div>
     </div>
 
     <div class="block">
@@ -95,6 +117,16 @@ defineExpose({});
 .kv b[data-status="running"] { color: #d9a918; }
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
+.branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chg i { margin-left: auto; font-style: normal; font-size: 10px; padding: 0 5px; border-radius: 4px; }
+.chg[data-st="M"] i { background: rgb(204 125 94 / 25%); color: #b96a4a; }
+.chg[data-st="A"] i { background: rgb(74 158 92 / 25%); color: #4a9e5c; }
+.chg[data-st="??"] i { background: rgb(85 119 170 / 30%); color: #7a9ac9; }
+.chg[data-st="D"] i { background: rgb(197 68 68 / 25%); color: #c54444; }
+.more { color: var(--text-faint); font-size: 11px; }
 .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .modes button { padding: 6px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--hover); color: var(--text-dim); cursor: pointer; font-size: 12px; }
 .modes button.active { border-color: var(--accent); background: #1c3a5e; color: #fff; }
