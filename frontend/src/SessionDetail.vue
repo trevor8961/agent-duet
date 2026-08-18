@@ -61,8 +61,9 @@ function turnDenied(turnId) {
 }
 
 function turnFailed(turnId) {
+  // denied 不算"失败"：它的正确动作是授权（grant），重试同模式只会再被拒
   const t = detail.value?.turns?.find((x) => x.id === turnId);
-  return t && ["error", "cancelled", "denied"].includes(t.status);
+  return t && ["error", "cancelled"].includes(t.status);
 }
 
 const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
