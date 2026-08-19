@@ -25,6 +25,15 @@ async def client(tmp_path, monkeypatch):
     for name in order:
         importlib.reload(importlib.import_module(name))
 
+    # 测试走旧子进程 runner（fake_claude 模拟 claude 命令）；
+    # 生产 profile 标了 sdk:true 会切到 SDK runner，测试环境强制关闭
+    import app.runner as runner_mod
+
+    runner_mod.profile_supports_sdk = lambda agent: False
+    import app.routes as routes_mod
+
+    routes_mod.profile_supports_sdk = lambda agent: False
+
     transport = ASGITransport(app=app.main.app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         await app.main.startup()

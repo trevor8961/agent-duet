@@ -26,6 +26,7 @@ CLAUDE_CODE_PROFILE = {
         "streaming": True,
         "resume": True,
         "cost_report": True,
+        "sdk": True,
     },
 }
 

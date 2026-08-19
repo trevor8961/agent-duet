@@ -90,6 +90,23 @@ class Turn(Base):
     created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
 
 
+class PermissionRequest(Base):
+    """事中授权的挂起请求（DB-first：刷新/重启后可对账）。"""
+
+    __tablename__ = "permission_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    request_id: Mapped[str] = mapped_column(unique=True, index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"))
+    turn_id: Mapped[int] = mapped_column(ForeignKey("turns.id"))
+    tool_name: Mapped[str]
+    tool_input: Mapped[str]  # JSON
+    tool_use_id: Mapped[str | None]  # 关联到具体工具调用（授权状态挂回工具卡）
+    status: Mapped[str] = mapped_column(default="pending")  # pending/approved/denied/timeout
+    created_at: Mapped[str] = mapped_column(server_default=text("datetime('now')"))
+    timeout_at: Mapped[str | None]
+
+
 class Message(Base):
     """通用协议层流水。channel 取值: text / thinking / tool_use / tool_result。"""
 

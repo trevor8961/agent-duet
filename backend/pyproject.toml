@@ -9,6 +9,7 @@ dependencies = [
     "aiosqlite",
     "pydantic-resolve",
     "greenlet",
+    "claude-agent-sdk>=0.2.140",
 ]
 
 [tool.uv]

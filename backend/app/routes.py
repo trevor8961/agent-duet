@@ -13,7 +13,7 @@ from .bus import bus
 from .db import DATA_DIR, SessionLocal
 from .models import Agent, Message, Session, Turn
 from .views import get_session_detail, list_sessions
-from .runner import DEFAULT_INTENT, _cancel_flags, _running, build_command, execute_turn
+from .runner import DEFAULT_INTENT, _cancel_flags, _running, build_command, execute_turn, profile_supports_sdk
 
 
 class SessionCreate(BaseModel):
@@ -77,6 +77,39 @@ def register_routes(app):
             db.add(s)
             await db.commit()
             return {"id": s.id, "title": s.title, "mode": s.mode}
+
+    @app.get("/api/sessions/{sid}/permissions")
+    async def pending_permissions(sid: int):
+        """返回该会话仍挂起中的权限请求（页面重开恢复用）。"""
+        from sqlalchemy import select as sa_select
+
+        from .models import PermissionRequest
+
+        async with SessionLocal() as db:
+            rows = (await db.execute(
+                sa_select(PermissionRequest).where(
+                    PermissionRequest.session_id == sid,
+                    PermissionRequest.status == "pending",
+                )
+            )).scalars().all()
+            return [
+                {"request_id": r.request_id, "tool_name": r.tool_name,
+                 "tool_input": json.loads(r.tool_input), "timeout_at": r.timeout_at}
+                for r in rows
+            ]
+
+    @app.post("/api/sessions/{sid}/permission/{request_id}")
+    async def resolve_permission(sid: int, request_id: str, body: dict):
+        """用户批准/拒绝挂起中的权限请求（body={"decision": "allow"|"deny"}）。"""
+        from .sdk_runner import resolve_permission as _resolve
+
+        decision = (body or {}).get("decision")
+        if decision not in ("allow", "deny"):
+            raise HTTPException(400, "decision 必须是 allow 或 deny")
+        ok = _resolve(request_id, decision)
+        if not ok:
+            raise HTTPException(410, "请求不存在或已处理")
+        return {"ok": True}
 
     @app.delete("/api/sessions/{sid}")
     async def delete_session(sid: int):
@@ -229,17 +262,27 @@ def register_routes(app):
             db.add(turn)
             await db.flush()
 
-            # 用户消息在 turn 创建时立即落库（崩溃安全；刷新页面也能看到自己的提问）
+            # 消息在 turn 创建时立即落库（崩溃安全；刷新页面也能看到）。
+            # 授权重跑（granted_from 非空）是系统代发的指令，role=system 不冒充用户提问
+            msg_role = "system" if body.granted_from is not None else "user"
             msg_seq = (await db.scalar(
                 select(func.max(Message.seq)).where(Message.session_id == sid)
             )) or 0
             db.add(Message(session_id=sid, turn_id=turn.id, seq=msg_seq + 1,
-                           role="user", channel="text",
+                           role=msg_role, channel="text",
                            content=json.dumps({"text": body.text}, ensure_ascii=False)))
             s.status = "running"
             await db.commit()
             turn_id = turn.id
             cwd = s.cwd
 
-        background.add_task(execute_turn, sid, turn_id, body.text, cmd, cwd)
+        if profile_supports_sdk(agent):
+            from .sdk_runner import execute_turn_sdk
+
+            background.add_task(
+                execute_turn_sdk, sid, turn_id, body.text, cwd,
+                turn_mode, s.agent_session_id, agent.model, agent.command,
+            )
+        else:
+            background.add_task(execute_turn, sid, turn_id, body.text, cmd, cwd)
         return {"turn_id": turn_id, "status": "running"}

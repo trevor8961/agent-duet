@@ -13,7 +13,7 @@ from pydantic_resolve import Loader, Resolver
 from sqlalchemy import func, select
 
 from .db import SessionLocal
-from .models import Message, Session, Turn
+from .models import Message, PermissionRequest, Session, Turn
 
 
 async def session_stats_loader(session_ids: list[int]) -> list[Optional[dict]]:
@@ -143,6 +143,10 @@ async def get_session_detail(session_id: int) -> dict | None:
         messages = (await db.execute(
             select(Message).where(Message.session_id == session_id).order_by(Message.seq)
         )).scalars().all()
+        permissions = (await db.execute(
+            select(PermissionRequest).where(PermissionRequest.session_id == session_id)
+            .order_by(PermissionRequest.id)
+        )).scalars().all()
 
     return {
         "id": s.id, "title": s.title, "cwd": s.cwd, "mode": s.mode, "status": s.status,
@@ -159,5 +163,12 @@ async def get_session_detail(session_id: int) -> dict | None:
             {"seq": m.seq, "turn_id": m.turn_id, "role": m.role, "channel": m.channel,
              "content": m.content, "tool_use_id": m.tool_use_id}
             for m in messages
+        ],
+        "permissions": [
+            {"id": p.id, "request_id": p.request_id, "turn_id": p.turn_id,
+             "tool_name": p.tool_name, "tool_input": p.tool_input,
+             "tool_use_id": p.tool_use_id,
+             "status": p.status, "timeout_at": p.timeout_at}
+            for p in permissions
         ],
     }

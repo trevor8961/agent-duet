@@ -33,6 +33,14 @@ _cancel_flags: set[int] = set()  # 由 cancel 接口置位，execute_turn 收尾
 DEFAULT_INTENT = "询问"
 
 
+def profile_supports_sdk(agent: Agent) -> bool:
+    """profile 的 capabilities 标 sdk:true 时走 SDK runner（事中授权能力）。"""
+    try:
+        return bool(json.loads(agent.capabilities or "{}").get("sdk"))
+    except json.JSONDecodeError:
+        return False
+
+
 def build_command(agent: Agent, session: Session, prompt: str, mode: str | None = None) -> list[str]:
     """通用档位 → 原生参数的翻译发生在这里；返回值同时用于审计。
 

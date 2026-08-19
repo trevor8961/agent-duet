@@ -139,3 +139,23 @@ async def test_session_detail(client, tmp_path):
 async def test_session_detail_404(client):
     resp = await client.get("/api/sessions/9999")
     assert resp.status_code == 404
+
+
+async def test_session_detail_includes_permissions(client, tmp_path):
+    """场景：会话里有过权限交互（超时/批准）。期望：详情返回 permissions 数组。"""
+    await seed_three_sessions(client)
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "agent-duet.db")
+    sid = db.execute("SELECT id FROM sessions WHERE title='修登录bug'").fetchone()[0]
+    db.execute("INSERT INTO permission_requests (request_id, session_id, turn_id, tool_name, tool_input, status, timeout_at) "
+               "VALUES ('r1', ?, (SELECT id FROM turns WHERE session_id=? LIMIT 1), 'Write', '{}', 'timeout', '2026-01-01 00:00:00')",
+               (sid, sid))
+    db.commit()
+    db.close()
+
+    resp = await client.get(f"/api/sessions/{sid}")
+    perms = resp.json()["permissions"]
+    assert len(perms) == 1
+    assert perms[0]["tool_name"] == "Write"
+    assert perms[0]["status"] == "timeout"
