@@ -90,7 +90,7 @@ watch(() => props.detail?.messages?.length, loadGit);
       </div>
     </Block>
 
-    <!-- 工作区 -->
+    <!-- git 状态 -->
     <Block :title="t('git')" block-key="ctx-git" static :class="{ 'git-off': git && !git.is_repo }">
       <div class="body">
         <template v-if="git?.is_repo">
@@ -116,7 +116,7 @@ watch(() => props.detail?.messages?.length, loadGit);
       </div>
     </Block>
 
-    <!-- 节目单 -->
+    <!-- 请求（Requests） -->
     <Block :title="`${t('playbill')} · ${detail.turns.length} ${t('rounds')}`" block-key="ctx-turns" static>
       <div class="body scroll-list">
         <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status" @click="emit('locate', t.id)">

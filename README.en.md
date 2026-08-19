@@ -50,7 +50,7 @@ which files were touched — find it again in a second.
 | 🔍 Session dossier | Search by topic, group by directory — no more lost sessions |
 | 🎼 Layered view | Reply / thinking / tools shown in layers — goodbye waterfall |
 | 🔐 Live authorization | Guided mode prompts an authorization card for every write, with approve/deny/timeout permanently recorded |
-| 📊 Playbill | Intent + thinking count + tool count + duration per turn |
+| 📊 Requests | Intent + thinking count + tool count + duration per turn |
 | 🌿 Git awareness | Branch and changed files shown live — see what the agent touched |
 | 🧩 Multi-agent ready | Profile system — adding an agent is one config entry |
 

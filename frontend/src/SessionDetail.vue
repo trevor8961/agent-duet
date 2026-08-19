@@ -303,7 +303,7 @@ function subscribe() {
         return;
       }
       if (line.type === "assistant") {
-        // 实时低声部/主旋律：先本地展示，turn_done 后以 DB 为准刷新
+        // 实时思考/回复：先本地展示，turn_done 后以 DB 为准刷新
         for (const block of line.message?.content ?? []) {
           if (block.type === "thinking" || block.type === "text") {
             detail.value?.messages.push({
@@ -368,7 +368,7 @@ onMounted(async () => {
 });
 onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
 
-// 节目单点击定位：滚动对话流到对应轮次（App 通过 ref 调用）
+// 请求（Requests）点击定位：滚动对话流到对应轮次（App 通过 ref 调用）
 function scrollToTurn(turnId) {
   const el = flowEl.value?.querySelector(`[data-turn-id="${turnId}"]`);
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -459,7 +459,7 @@ defineExpose({ scrollToTurn });
           </div>
         </details>
 
-        <!-- 主旋律：回复纸卡 -->
+        <!-- 正式回复：纸卡 -->
         <div v-for="m in turn.replies" :key="m.seq" class="reply-card paper" :class="{ collapsed: !replyOpen(m) }">
           <div class="reply-top">
             <span class="reply-label">{{ t("replied") }}</span>
