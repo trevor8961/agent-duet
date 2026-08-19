@@ -24,7 +24,7 @@ from .judge import JudgeInput, decide_outcome, make_claude_judge
 from .models import Agent, Message, PermissionRequest, Session, Turn
 
 # 超时（秒）：用户 3 分钟无响应默认拒绝（plan 已拍板）
-PERMISSION_TIMEOUT = 10
+PERMISSION_TIMEOUT = 300
 
 # 运行中的权限等待器：request_id -> asyncio.Event + 决策
 _pending: dict[str, dict] = {}

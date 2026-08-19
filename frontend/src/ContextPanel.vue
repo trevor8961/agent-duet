@@ -108,7 +108,7 @@ watch(() => props.detail?.messages?.length, loadGit);
           </div>
           <div v-if="showChanges && git.changes.length" class="changes">
             <div v-for="c in git.changes" :key="c.path" class="chg" :data-st="c.status" :title="c.path">
-              <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status }}</i>
+              <code>{{ c.path.split("/").pop() }}</code><i>{{ c.status === "??" ? t("newFile") : c.status }}</i>
             </div>
           </div>
         </template>
@@ -178,7 +178,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .chg i { margin-left: auto; font-style: normal; font-size: 14px; padding: 0 5px; border-radius: 4px; }
 .chg[data-st="M"] i { background: rgb(204 125 94 / 25%); color: #b96a4a; }
 .chg[data-st="A"] i { background: rgb(74 158 92 / 25%); color: #4a9e5c; }
-.chg[data-st="??"] i { background: rgb(85 119 170 / 30%); color: #7a9ac9; }
+.chg[data-st="??"] i { background: rgb(74 158 92 / 25%); color: #4a9e5c; }
 .chg[data-st="D"] i { background: rgb(197 68 68 / 25%); color: #c54444; }
 .more { color: var(--text-faint); font-size: 14px; }
 
