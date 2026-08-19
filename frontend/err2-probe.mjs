@@ -1,0 +1,10 @@
+import { chromium } from "playwright";
+const b = await chromium.launch();
+const page = await b.newPage();
+page.on("pageerror", (e) => console.log("PAGE ERR:", e.message.slice(0, 300)));
+page.on("console", (m) => m.type() === "error" && console.log("CONSOLE:", m.text().slice(0, 300)));
+await page.goto("http://localhost:5173/#/s/2");
+await page.waitForTimeout(1800);
+console.log("turns:", await page.evaluate(() => document.querySelectorAll(".backstage, .reply, .user-row").length));
+console.log("flow children:", await page.evaluate(() => document.querySelector(".flow")?.children.length));
+await b.close();

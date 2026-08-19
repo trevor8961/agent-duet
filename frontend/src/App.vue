@@ -12,26 +12,38 @@ const agents = ref([]);
 const form = ref({ title: "", cwd: "", agent_id: null, mode: "guided" });
 const leftNav = ref(null);
 
-// 右栏宽度：可拖拽，持久化，上限为视口 1/3
+// 侧栏宽度（左右两栏同款机制）：可拖拽，持久化，上限各为视口 1/3
 const ctxWidth = ref(Math.min(Number(localStorage.getItem("ad-ctx-width")) || 300, Math.floor(window.innerWidth / 3)));
+const navWidth = ref(Math.min(Number(localStorage.getItem("ad-nav-width")) || 250, Math.floor(window.innerWidth / 3)));
 const dragging = ref(false);
 
-function startDrag(e) {
-  dragging.value = true;
-  const max = Math.floor(window.innerWidth / 3);
-  const onMove = (ev) => {
-    ctxWidth.value = Math.min(max, Math.max(240, window.innerWidth - ev.clientX));
+function makeDrag({ max, min, get, set, save }) {
+  return (e) => {
+    dragging.value = true;
+    const onMove = (ev) => set(Math.min(max(), Math.max(min(), get(ev))));
+    const onUp = () => {
+      dragging.value = false;
+      save();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    e.preventDefault();
   };
-  const onUp = () => {
-    dragging.value = false;
-    localStorage.setItem("ad-ctx-width", String(ctxWidth.value));
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-  };
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
-  e.preventDefault();
 }
+
+// 右栏：从视口右缘算宽度；左栏：直接取 clientX
+const startCtxDrag = makeDrag({
+  max: () => Math.floor(window.innerWidth / 3), min: () => 240,
+  get: (ev) => window.innerWidth - ev.clientX, set: (v) => (ctxWidth.value = v),
+  save: () => localStorage.setItem("ad-ctx-width", String(ctxWidth.value)),
+});
+const startNavDrag = makeDrag({
+  max: () => Math.floor(window.innerWidth / 3), min: () => 200,
+  get: (ev) => ev.clientX, set: (v) => (navWidth.value = v),
+  save: () => localStorage.setItem("ad-nav-width", String(navWidth.value)),
+});
 
 const MODES = [
   { value: "readonly", key: "modeReadonly" },
@@ -82,7 +94,8 @@ onMounted(async () => {
 
 <template>
   <div class="shell">
-    <LeftNav ref="leftNav" @open="openSession" @create="showCreate = true" />
+    <LeftNav ref="leftNav" :style="{ width: navWidth + 'px' }" @open="openSession" @create="showCreate = true" />
+    <div class="divider" :class="{ dragging }" @mousedown="startNavDrag" title="拖拽调整宽度"></div>
 
     <main class="center">
       <SessionDetail v-if="currentId" :id="currentId" @loaded="onLoaded" />
@@ -94,7 +107,7 @@ onMounted(async () => {
     </main>
 
     <template v-if="currentId">
-      <div class="divider" :class="{ dragging }" @mousedown="startDrag" title="拖拽调整宽度"></div>
+      <div class="divider" :class="{ dragging }" @mousedown="startCtxDrag" title="拖拽调整宽度"></div>
       <ContextPanel :id="currentId" :detail="detail" :style="{ width: ctxWidth + 'px' }" />
     </template>
 
@@ -129,11 +142,11 @@ onMounted(async () => {
 .center { flex: 1; min-width: 0; display: flex; }
 .home { margin: auto; text-align: center; color: var(--text-faint); }
 .home h1 { color: var(--text); margin-bottom: 8px; }
-.hint { font-size: 13px; color: var(--text-faint); }
+.hint { font-size: 14px; color: var(--text-faint); }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
 .modal-box { background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 12px; }
 .modal-box h2 { margin: 0 0 4px; font-size: 16px; }
-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-dim); }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--text-dim); }
 label input, label select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--panel); color: var(--text); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; }
 button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }

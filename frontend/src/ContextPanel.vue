@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from "vue";
 import { t, intentLabel } from "./i18n";
+import Block from "./Block.vue";
 
 const props = defineProps({ id: Number, detail: Object });
 
@@ -14,20 +15,11 @@ const MODES = [
 const saving = ref(false);
 const git = ref(null);
 
-// 块折叠状态持久化（记住用户想看哪些块）
-const BLOCKS = ["mode", "info", "git", "turns", "activity"];
 const showChanges = ref(false); // 变更列表默认折叠，只显示计数
 
 const openBlocks = ref(
   new Set(JSON.parse(localStorage.getItem("ad-ctx-blocks") || '["mode","info","git","turns"]'))
 );
-function toggleBlock(b) {
-  const next = new Set(openBlocks.value);
-  next.has(b) ? next.delete(b) : next.add(b);
-  openBlocks.value = next;
-  localStorage.setItem("ad-ctx-blocks", JSON.stringify([...next]));
-}
-
 async function loadGit() {
   try {
     git.value = await (await fetch(`/api/sessions/${props.id}/git`)).json();
@@ -73,30 +65,30 @@ watch(() => props.detail?.messages?.length, loadGit);
 <template>
   <aside class="ctx" v-if="detail">
     <!-- 模式：可操作，置顶 -->
-    <section class="block" :data-open="openBlocks.has('mode')">
-      <header @click="toggleBlock('mode')"><span>{{ t("mode") }}</span><i></i></header>
-      <div v-show="openBlocks.has('mode')" class="body">
-        <select class="mode-select" :value="detail.mode" :disabled="saving" @change="switchMode($event.target.value)">
-          <option v-for="m in MODES" :key="m.value" :value="m.value">{{ t(m.key) }}</option>
-        </select>
+    <Block :title="t('mode')" block-key="ctx-mode">
+      <div>
+        <div class="mode-row">
+          <span class="mode-label">{{ t("currentMode") }}</span>
+          <select class="mode-chip" :value="detail.mode" :disabled="saving" @change="switchMode($event.target.value)">
+            <option v-for="m in MODES" :key="m.value" :value="m.value">{{ t(m.key) }}</option>
+          </select>
+        </div>
       </div>
-    </section>
+    </Block>
 
     <!-- 基本信息 -->
-    <section class="block" :data-open="openBlocks.has('info')">
-      <header @click="toggleBlock('info')"><span>{{ t("basicInfo") }}</span><i></i></header>
-      <div v-show="openBlocks.has('info')" class="body">
+    <Block :title="t('basicInfo')" block-key="ctx-info">
+      <div class="body">
         <div class="kv"><span>{{ t("topicShort") }}</span><b>{{ detail.title }}</b></div>
         <div class="kv"><span>{{ t("cwdShort") }}</span><code :title="detail.cwd">{{ detail.cwd }}</code></div>
         <div class="kv"><span>{{ t("status") }}</span><b :data-status="detail.status">{{ detail.status }}</b></div>
         <div class="kv"><span>会话</span><span>{{ detail.agent_session_id ? t("linked") : t("unlinked") }}</span></div>
       </div>
-    </section>
+    </Block>
 
     <!-- 工作区 -->
-    <section class="block" :data-open="openBlocks.has('git')">
-      <header @click="toggleBlock('git')"><span>{{ t("workspace") }}</span><i></i></header>
-      <div v-show="openBlocks.has('git')" class="body">
+    <Block :title="t('workspace')" block-key="ctx-git">
+      <div class="body">
         <template v-if="git?.is_repo">
           <div class="kv"><span>{{ t("branch") }}</span><b class="branch">{{ git.branch }}</b></div>
           <div v-if="git.upstream" class="kv"><span>{{ t("upstream") }}</span>
@@ -118,12 +110,11 @@ watch(() => props.detail?.messages?.length, loadGit);
         </template>
         <div v-else class="none">{{ t("notGit") }}</div>
       </div>
-    </section>
+    </Block>
 
     <!-- 节目单 -->
-    <section class="block" :data-open="openBlocks.has('turns')">
-      <header @click="toggleBlock('turns')"><span>{{ t("playbill") }} · {{ detail.turns.length }} {{ t("rounds") }}</span><i></i></header>
-      <div v-show="openBlocks.has('turns')" class="body scroll-list">
+    <Block :title="`${t('playbill')} · ${detail.turns.length} ${t('rounds')}`" block-key="ctx-turns">
+      <div class="body scroll-list">
         <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
           <span class="intent">{{ intentLabel(t.intent) }}</span>
           <span class="t-status">{{ statusText(t.status) }}</span>
@@ -132,12 +123,11 @@ watch(() => props.detail?.messages?.length, loadGit);
         </div>
         <div v-if="!detail.turns.length" class="none">{{ t("noTurns") }}</div>
       </div>
-    </section>
+    </Block>
 
     <!-- 活动 -->
-    <section class="block" :data-open="openBlocks.has('activity')">
-      <header @click="toggleBlock('activity')"><span>{{ t("activity") }} · {{ activity(detail).toolCount }} {{ t("toolCalls") }}</span><i></i></header>
-      <div v-show="openBlocks.has('activity')" class="body">
+    <Block :title="`${t('activity')} · ${activity(detail).toolCount} ${t('toolCalls')}`" block-key="ctx-activity" :default-open="false">
+      <div class="body">
         <div v-if="activity(detail).files.length" class="files">
           <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
         </div>
@@ -146,7 +136,7 @@ watch(() => props.detail?.messages?.length, loadGit);
         </div>
         <div v-if="!activity(detail).toolCount" class="none">{{ t("noActivity") }}</div>
       </div>
-    </section>
+    </Block>
   </aside>
 </template>
 
@@ -154,13 +144,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 .ctx { flex-shrink: 0; border-left: 1px solid var(--border); padding: 12px 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 
 /* 块状组织：标题栏可折叠，折叠状态持久化 */
-.block { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden; }
-.block header { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: .5px; }
-.block header:hover { color: var(--text); }
-.block header i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; }
-.block[data-open="true"] header i { transform: rotate(180deg); }
-.block .body { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 3px; }
-.scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 4px;
+.scroll-list { max-height: 240px; overflow-y: auto; padding-bottom: 16px;
   mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%); }
 /* macOS 悬叠式滚动条平时不可见，用户无从知道可滚——常显细滚动条 */
@@ -169,46 +153,52 @@ watch(() => props.detail?.messages?.length, loadGit);
 .scroll-list::-webkit-scrollbar-thumb:hover, .changes::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 .scroll-list::-webkit-scrollbar-track, .changes::-webkit-scrollbar-track { background: transparent; }
 
-.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-dim); align-items: center; }
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; padding: 2px 0; color: var(--text); align-items: center; }
+.kv span:first-child { color: var(--text-faint); font-weight: 500; }
 .kv span:first-child { color: var(--text-faint); }
-.kv code { font-size: 11px; color: var(--text-dim); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv code { font-size: 14px; color: var(--text-dim); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv b[data-status="running"] { color: #d9a918; }
 .kv b[data-status="error"] { color: #c54444; }
 .kv b[data-status="done"] { color: #4a9e5c; }
 
-.mode-select { width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); cursor: pointer; font-size: 13px; }
+.mode-row { display: flex; align-items: center; justify-content: space-between; }
+.mode-label { font-size: 14px; color: var(--text-faint); line-height: 20px; }
+.mode-chip { height: 20px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--accent);
+  background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 14px; font-weight: 600;
+  line-height: 18px; /* 与 label 行盒同高：中线对齐为第一约束 */
+  -webkit-appearance: none; appearance: none; text-align: center; }
 
-.branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-.upstream { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text-dim); display: inline-flex; gap: 4px; align-items: center; }
-.ab { font-style: normal; font-size: 10px; padding: 0 5px; border-radius: 4px; }
+.branch { color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 14px; }
+.upstream { font-family: ui-monospace, Menlo, monospace; font-size: 14px; color: var(--text-dim); display: inline-flex; gap: 4px; align-items: center; }
+.ab { font-style: normal; font-size: 14px; padding: 0 5px; border-radius: 4px; }
 .ab.ahead { background: rgb(74 158 92 / 22%); color: #4a9e5c; }
 .ab.behind { background: rgb(204 125 94 / 22%); color: #b96a4a; }
-.chg-toggle { display: flex; align-items: center; gap: 6px; padding: 5px 0 2px; cursor: pointer; font-size: 12px; color: var(--text-dim); user-select: none; }
+.chg-toggle { display: flex; align-items: center; gap: 6px; padding: 5px 0 2px; cursor: pointer; font-size: 14px; color: var(--text-dim); user-select: none; }
 .chg-toggle:hover { color: var(--text); }
 .chg-toggle.dirty .tri { border-top-color: var(--accent); }
 .tri { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-faint); transition: transform .15s; flex-shrink: 0; }
-.changes { max-height: 22vh; overflow-y: auto; padding-bottom: 4px;
+.changes { max-height: 22vh; overflow-y: auto; padding-bottom: 16px;
   mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%); }
 .changes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
-.chg { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.chg { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .chg code { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chg i { margin-left: auto; font-style: normal; font-size: 10px; padding: 0 5px; border-radius: 4px; }
+.chg i { margin-left: auto; font-style: normal; font-size: 14px; padding: 0 5px; border-radius: 4px; }
 .chg[data-st="M"] i { background: rgb(204 125 94 / 25%); color: #b96a4a; }
 .chg[data-st="A"] i { background: rgb(74 158 92 / 25%); color: #4a9e5c; }
 .chg[data-st="??"] i { background: rgb(85 119 170 / 30%); color: #7a9ac9; }
 .chg[data-st="D"] i { background: rgb(197 68 68 / 25%); color: #c54444; }
-.more { color: var(--text-faint); font-size: 11px; }
+.more { color: var(--text-faint); font-size: 14px; }
 
-.turn { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 6px; border-radius: 6px; }
+.turn { display: flex; align-items: center; gap: 6px; font-size: 14px; padding: 4px 6px; border-radius: 6px; }
 .turn:hover { background: var(--hover); }
 .intent { color: #b89a5e; }
-.t-status { color: var(--text-faint); font-size: 11px; }
-.t-meta { margin-left: auto; color: var(--text-faint); font-size: 11px; }
-.none { color: var(--text-faint); font-size: 12px; padding: 6px; }
+.t-status { color: var(--text-faint); font-size: 14px; }
+.t-meta { margin-left: auto; color: var(--text-faint); font-size: 14px; }
+.none { color: var(--text-faint); font-size: 14px; padding: 6px; }
 
 .files { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-.files code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 11px; color: var(--text-dim); }
+.files code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 14px; color: var(--text-dim); }
 .cmds { display: flex; flex-direction: column; gap: 2px; }
-.cmd { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd { font-family: ui-monospace, monospace; font-size: 14px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const b = await chromium.launch();
+const page = await b.newPage({ viewport: { width: 1200, height: 800 } });
+await page.goto("http://localhost:5173/");
+await page.waitForTimeout(1200);
+const d = await page.locator(".divider").first().boundingBox();
+console.log("divider box:", JSON.stringify(d));
+await page.mouse.move(d.x + d.width / 2, d.y + 100);
+await page.mouse.down();
+await page.mouse.move(360, d.y + 100, { steps: 3 });
+const cls = await page.locator(".divider").first().getAttribute("class");
+const navW = await page.evaluate(() => document.querySelector(".nav").offsetWidth);
+console.log("拖拽中 class:", cls, "| nav宽:", navW);
+await page.mouse.up();
+console.log("松手后 nav宽:", await page.evaluate(() => document.querySelector(".nav").offsetWidth));
+await b.close();
