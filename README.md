@@ -25,14 +25,17 @@ agent-duet 是一个**本地自托管的 agent 会话工作台**：把 agent 的
 ## 快速开始
 
 ```bash
-# 后端
-cd backend && uv sync && uv run uvicorn app.main:app --port 8300
+# macOS / Linux / WSL
+./scripts/start.sh
 
-# 前端
-cd frontend && npm install && npm run dev
+# Windows (PowerShell)
+.\scripts\start.ps1
 ```
 
-打开 **http://localhost:5173**。详见 [快速上手](docs/getting-started.md)。
+首次运行会自动安装依赖，之后一键起前后端并打开浏览器
+（**http://localhost:5173**）。停止：`./scripts/stop.sh` / `.\scripts\stop.ps1`。
+
+详见 [快速上手](docs/getting-started.md)。
 
 ## 界面
 

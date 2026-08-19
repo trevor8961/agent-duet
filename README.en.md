@@ -26,14 +26,18 @@ a dossier for every session and a record for every authorization.
 ## Quick start
 
 ```bash
-# backend
-cd backend && uv sync && uv run uvicorn app.main:app --port 8300
+# macOS / Linux / WSL
+./scripts/start.sh
 
-# frontend
-cd frontend && npm install && npm run dev
+# Windows (PowerShell)
+.\scripts\start.ps1
 ```
 
-Open **http://localhost:5173**. See [Getting started](docs/getting-started.md).
+First run installs dependencies automatically; afterwards it starts both servers
+and opens the browser (**http://localhost:5173**). Stop with `./scripts/stop.sh` /
+`.\scripts\stop.ps1`.
+
+See [Getting started](docs/getting-started.md).
 
 ## Interface
 

@@ -18,18 +18,27 @@ claude --version  # 应有输出
 
 ## 启动
 
+**一键脚本（推荐）**：
+
+```bash
+./scripts/start.sh      # macOS / Linux / WSL
+# 或 Windows PowerShell：
+.\scripts\start.ps1
+```
+
+首次运行自动装依赖，之后一键起前后端并打开浏览器。
+停止：`./scripts/stop.sh` / `.\scripts\stop.ps1`。
+
+**手动启动**（可选）：
+
 ```bash
 cd agent-duet
 
 # 后端（端口 8300）
-cd backend
-uv sync
-uv run uvicorn app.main:app --port 8300
+cd backend && uv sync && uv run uvicorn app.main:app --port 8300
 
 # 前端（端口 5173，另开一个终端）
-cd ../frontend
-npm install
-npm run dev
+cd ../frontend && npm install && npm run dev
 ```
 
 浏览器打开 **http://localhost:5173**。
