@@ -50,12 +50,16 @@ function statusText(s) { return STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s; }
 
 async function switchMode(mode) {
   saving.value = true;
-  await fetch(`/api/sessions/${props.id}`, {
+  const r = await fetch(`/api/sessions/${props.id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
   });
   saving.value = false;
+  if (r.ok && props.detail) {
+    // 本地同步：detail 是父组件传入的响应式对象，直接改让下拉框/档案即时刷新
+    props.detail.mode = mode;
+  }
 }
 
 onMounted(loadGit);

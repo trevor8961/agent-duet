@@ -31,6 +31,49 @@ let es = null;
 // 回复折叠：默认仅最新一条展开；用户手动开/关按 seq 记住
 const replyOverrides = ref({});
 const retriedTurns = ref(new Set()); // 已重试过的 turn，按钮置灰
+const permission = ref(null); // 挂起中的权限请求（事中授权）
+const permLeft = ref(0); // 倒计时剩余秒
+let permTimer = null;
+
+function onPermission(ev) {
+  const d = JSON.parse(ev.data).data;
+  setPermission(d);
+}
+
+function setPermission(d) {
+  permission.value = d;
+  stopPermTimer();
+  if (d?.timeout_at) {
+    const end = new Date(String(d.timeout_at).replace(" ", "T")).getTime();
+    permTimer = setInterval(() => {
+      permLeft.value = Math.max(0, Math.round((end - Date.now()) / 1000));
+      if (permLeft.value <= 0) { stopPermTimer(); permission.value = null; }
+    }, 1000);
+    permLeft.value = Math.max(0, Math.round((end - Date.now()) / 1000));
+  }
+}
+
+function stopPermTimer() { clearInterval(permTimer); permTimer = null; }
+
+async function decidePermission(decision) {
+  const rid = permission.value?.request_id;
+  if (!rid) return;
+  await fetch(`${API}/sessions/${props.id}/permission/${rid}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision }),
+  });
+  stopPermTimer();
+  permission.value = null;
+}
+
+// 恢复挂起的权限请求（页面重开）
+async function recoverPermissions() {
+  try {
+    const rows = await (await fetch(`${API}/sessions/${props.id}/permissions`)).json();
+    if (rows?.length) setPermission(rows[0]);
+  } catch { /* 忽略 */ }
+}
 
 // 授权状态从数据推导：任何 turn 的 granted_from 指向它，即已被授权过
 function turnGranted(turnId) {
@@ -88,13 +131,20 @@ function turnAbnormal(turnId) {
   return ["denied", "error", "cancelled"].includes(turnStatusOf(turnId));
 }
 
+// 本轮是否有"未授权"的交互（denied/timeout）——决定「授权并继续」按钮是否出现
+function turnHadAuthBlock(turnId) {
+  return (detail.value?.permissions ?? []).some(
+    (p) => p.turn_id === turnId && ["denied", "timeout"].includes(p.status)
+  );
+}
+
 function turnFailed(turnId) {
-  // denied 不算"失败"：它的正确动作是授权（grant），重试同模式只会再被拒
+  // 「失败/已终止」才给重试；「未完成」的正确动作是授权（grant）
   const t = detail.value?.turns?.find((x) => x.id === turnId);
   return t && ["error", "cancelled"].includes(t.status);
 }
 
-const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
+const STATUS_KEYS = { done: "stDone", denied: "stIncomplete", error: "stError", cancelled: "stTerminated", running: "stRunning" };
 function statusText(s) { return STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s; }
 
 // 轮次级一次性授权：本轮以 autonomous 执行，会话模式不动，授权链留痕
@@ -103,8 +153,8 @@ async function grantAndContinue(turnId) {
   running.value = true;
   startWorking();
   detail.value?.messages.push({
-    seq: 9e9 - 1, role: "user", channel: "text",
-    content: JSON.stringify({ text: "🔓（已授权本轮文件操作，继续）" }), turn_id: -1,
+    seq: 9e9 - 1, role: "system", channel: "text",
+    content: JSON.stringify({ text: "🔓 已授权（autonomous）重新执行" }), turn_id: -1,
   });
   stickToBottom();
   subscribe();
@@ -170,7 +220,9 @@ function groupMessages(messages) {
       const ordered = [...turn.raw].sort((a, b) => a.seq - b.seq);
       // 最后一个 assistant text 块才是最终答复；中间的 text 是过程旁白，归入幕后
       const lastTextSeq = Math.max(...ordered.filter((m) => m.channel === "text" && m.role === "assistant").map((m) => m.seq), -1);
+      const systemMsgs = [];
       for (const m of ordered) {
+        if (m.role === "system") { systemMsgs.push(m); continue; }
         if (m.role === "user" && m.channel === "text") userText = m;
         else if (m.channel === "text" && m.role === "assistant" && m.seq !== lastTextSeq) backstage.push({ kind: "narration", seq: m.seq, m });
         else if (m.channel === "text" && m.role === "assistant") replies.push(m);
@@ -181,13 +233,17 @@ function groupMessages(messages) {
             (x) => x.channel === "tool_result" && x.tool_use_id === payload.tool_use_id
           );
           if (result) seen.add(result.seq);
-          backstage.push({ kind: "tool", seq: m.seq, payload, result });
+          const perm = (detail.value?.permissions ?? []).find(
+            (p) => p.tool_use_id === payload.tool_use_id
+          );
+          backstage.push({ kind: "tool", seq: m.seq, payload, result, perm: perm?.status || null });
         } // 孤儿 tool_result 忽略（配对已尽）
       }
       const live = turn.id === "__live__";
       const t = live ? null : (detail.value?.turns ?? []).find((x) => x.id === turn.id);
+      const perms = (detail.value?.permissions ?? []).filter((p) => p.turn_id === turn.id);
       return {
-        id: turn.id, userText, backstage, replies,
+        id: turn.id, userText, systemMsgs, backstage, replies, perms,
         thinkCount: backstage.filter((b) => b.kind === "thinking").length,
         toolCount: backstage.filter((b) => b.kind === "tool").length,
         narrationCount: backstage.filter((b) => b.kind === "narration").length,
@@ -195,7 +251,7 @@ function groupMessages(messages) {
       };
     });
   } catch {
-    return [{ userText: null, backstage: [], replies: messages, thinkCount: 0, toolCount: 0, status: undefined }];
+    return [{ userText: null, systemMsgs: [], backstage: [], replies: messages, thinkCount: 0, toolCount: 0, status: undefined }];
   }
 }
 
@@ -251,6 +307,7 @@ function subscribe() {
       }
     } catch { /* 未知行忽略，与后端解析器同一原则 */ }
   });
+  es.addEventListener("permission_request", onPermission);
   es.addEventListener("turn_done", () => {
     es?.close(); es = null;
     stopWorking();
@@ -294,10 +351,11 @@ async function cancel() {
 onMounted(async () => {
   await load();
   await stickToBottom();
+  recoverPermissions();
   // 刷新/中途进入正在运行的会话：接上实时流 + 启动计时（否则状态条停在 0s）
   if (detail.value?.status === "running") { startWorking(); subscribe(); }
 });
-onUnmounted(() => { es?.close(); stopWorking(); });
+onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
 </script>
 
 <template>
@@ -319,18 +377,28 @@ onUnmounted(() => { es?.close(); stopWorking(); });
           <div class="bubble user">{{ parseContent(turn.userText).text }}</div>
         </div>
 
+        <!-- 系统生成消息（如授权重跑）用系统样式，不冒充用户提问 -->
+        <div v-for="sm in turn.systemMsgs" :key="sm.seq" class="system-row">
+          {{ parseContent(sm).text }}
+        </div>
+
         <!-- 轮次状态行：状态与动作同处（单一事实来源）；正常完成不显示 -->
         <div v-if="turn.userText && turnAbnormal(turn.id)" class="turn-status" :data-st="turnGranted(turn.id) ? 'granted' : turnStatusOf(turn.id)">
           <span class="ts-label">
             <template v-if="turnGranted(turn.id)">✓ {{ t('granted') }}</template>
-            <template v-else>{{ turnStatusOf(turn.id) === 'denied' ? '✕' : turnStatusOf(turn.id) === 'cancelled' ? '—' : '✕' }} {{ statusText(turnStatusOf(turn.id)) }}</template>
+            <template v-else>
+              <span class="ts-ico">{{ { denied: "▣", error: "✕", cancelled: "■" }[turnStatusOf(turn.id)] || "✕" }}</span>
+              {{ statusText(turnStatusOf(turn.id)) }}
+            </template>
           </span>
-          <button v-if="turnDenied(turn.id) && !turnGranted(turn.id)" class="ts-action grant"
-            :disabled="running" @click="grantAndContinue(turn.id)">🔓 {{ t('grant') }}</button>
-          <button v-else-if="turnFailed(turn.id) && !turnGranted(turn.id)"
-            :class="{ used: retriedTurns.has(turn.id) }"
-            :disabled="retriedTurns.has(turn.id) || running"
-            @click="retryTurn(turn.id)">↻ {{ retriedTurns.has(turn.id) ? t('retried') : t('retry') }}</button>
+          <span class="ts-actions">
+            <button v-if="turnHadAuthBlock(turn.id) && !turnGranted(turn.id)" class="ts-action grant"
+              :disabled="running" @click="grantAndContinue(turn.id)">🔓 {{ t('grant') }}</button>
+            <button v-if="turnFailed(turn.id) && !turnGranted(turn.id)"
+              :class="{ used: retriedTurns.has(turn.id) }"
+              :disabled="retriedTurns.has(turn.id) || running"
+              @click="retryTurn(turn.id)">↻ {{ retriedTurns.has(turn.id) ? t('retried') : t('retry') }}</button>
+          </span>
         </div>
 
         <!-- 幕后收纳：思考+工具统一进灰色折叠块，折叠态只显三要素 -->
@@ -351,9 +419,14 @@ onUnmounted(() => { es?.close(); stopWorking(); });
                 <span class="bk-label" :title="bkPreview(item)">
                   {{ bkIcon(item.kind) }} {{ item.kind === 'tool' ? bkToolLabel(item.payload) : bkPreview(item) }}
                 </span>
-                <button class="reply-toggle" @click.stop="toggleBk(item.seq)">
-                  {{ bkOpen(item.seq) ? t("collapse") : t("expand") }}
-                </button>
+                <span class="bk-actions">
+                  <span v-if="item.perm" class="perm-badge" :data-st="item.perm">
+                    {{ { approved: "✓ " + t('approved'), denied: "✕ " + t('deniedVerdict'), timeout: "⏱ " + t('timeout') }[item.perm] }}
+                  </span>
+                  <button class="reply-toggle" @click.stop="toggleBk(item.seq)">
+                    {{ bkOpen(item.seq) ? t("collapse") : t("expand") }}
+                  </button>
+                </span>
               </div>
               <!-- 思考：纸上斜体批注 -->
               <div v-if="bkOpen(item.seq) && item.kind === 'thinking'" class="bk-text italic"
@@ -394,6 +467,19 @@ onUnmounted(() => { es?.close(); stopWorking(); });
       </div>
     </div>
 
+    <div v-if="permission" class="perm-card">
+      <div class="perm-head">
+        <span class="perm-title">🔐 {{ t('permTitle') }}</span>
+        <span class="perm-count">{{ permLeft }}s</span>
+      </div>
+      <div class="perm-tool">工具：<code>{{ permission.tool_name }}</code></div>
+      <div class="perm-input"><code>{{ JSON.stringify(permission.tool_input) }}</code></div>
+      <div class="perm-actions">
+        <button class="perm-deny" @click="decidePermission('deny')">{{ t('deny') }}</button>
+        <button class="perm-allow" @click="decidePermission('allow')">{{ t('allow') }}</button>
+      </div>
+    </div>
+
     <footer>
       <textarea v-model="input" :disabled="running" :placeholder="t('inputPh')"
         @keydown="onKeydown"></textarea>
@@ -418,8 +504,8 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
 .turn-status { align-self: flex-start; display: flex; align-items: center; gap: 12px;
   padding: 5px 14px; border-radius: 8px; font-size: 14px; margin-top: -2px; }
-.turn-status[data-st="denied"] { background: rgb(185 138 74 / 10%); }
-.turn-status[data-st="denied"] .ts-label { color: #b98a4a; font-weight: 600; }
+.turn-status[data-st="denied"] { background: rgb(85 119 170 / 12%); }
+.turn-status[data-st="denied"] .ts-label { color: #7a9ac9; font-weight: 600; }
 .turn-status[data-st="error"] { background: rgb(197 68 68 / 8%); }
 .turn-status[data-st="error"] .ts-label { color: #c54444; font-weight: 600; }
 .turn-status[data-st="cancelled"] { background: var(--surface); }
@@ -429,6 +515,11 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   border: 1px solid #b98a4a; background: rgb(185 138 74 / 12%); color: #b98a4a; }
 .ts-action:hover:not(:disabled) { background: rgb(185 138 74 / 25%); }
 .ts-action.used, .ts-action:disabled { opacity: .45; cursor: default; }
+.ts-ico { font-size: 13px; }
+.ts-actions { display: flex; gap: 8px; }
+.system-row { align-self: center; padding: 4px 14px; border-radius: 99px; background: var(--surface);
+  color: var(--text-dim); font-size: 14px; border: 1px dashed var(--border-2);
+  margin: 8px 0; }
 .user-row { align-self: flex-end; display: flex; align-items: center; gap: 8px; max-width: 86%; }
 .user-row .bubble.user { background: #2b5387; color: #fff; max-width: none; flex: 1; min-width: 0; }
 .retry { padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 14px; flex-shrink: 0; }
@@ -540,6 +631,11 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .narration-text { color: var(--text-dim); font-size: 15px; line-height: 1.6; }
 .narration-text :deep(p) { margin: .2rem 0; display: inline; }
 .bk-label { color: var(--text); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.perm-badge { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.perm-badge[data-st="approved"] { color: #4a9e5c; }
+.perm-badge[data-st="denied"] { color: #c54444; }
+.perm-badge[data-st="timeout"] { color: #b98a4a; }
 .bk-text { color: var(--text); padding: 4px 10px; }
 .bk-text.italic { font-style: italic; color: var(--text-dim); }
 .bk-text :deep(p) { margin: .25rem 0; }
@@ -563,6 +659,18 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .working { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; color: var(--text-dim); }
 .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
 .tk { color: var(--text-faint); font-size: 14px; }
+.perm-card { border: 1px solid #b98a4a; background: rgb(185 138 74 / 10%); border-radius: 10px;
+  padding: 10px 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.perm-head { display: flex; align-items: center; justify-content: space-between; }
+.perm-title { font-weight: 600; color: #b98a4a; font-size: 15px; }
+.perm-count { color: #b98a4a; font-variant-numeric: tabular-nums; font-size: 14px; }
+.perm-tool { font-size: 14px; color: var(--text); }
+.perm-tool code { color: var(--text-dim); }
+.perm-input { font-size: 14px; color: var(--text-faint); }
+.perm-input code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+.perm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.perm-deny { padding: 4px 16px; border-radius: 99px; border: 1px solid #c54444; background: rgb(197 68 68 / 12%); color: #c54444; cursor: pointer; font-size: 14px; }
+.perm-allow { padding: 4px 16px; border-radius: 99px; border: 1px solid #4a9e5c; background: rgb(74 158 92 / 15%); color: #4a9e5c; cursor: pointer; font-size: 14px; }
 footer { display: flex; gap: 8px; margin-top: 12px; }
 textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); resize: none; font-family: inherit; }
 button { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
