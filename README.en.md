@@ -6,7 +6,7 @@
 
 # agent-duet
 
-> A duet between you and your agent — make the agent's work visible for the first time.
+> Make your agent's thinking and actions visible — for the first time.
 
 ![Session view](docs/images/session.png)
 
@@ -34,11 +34,11 @@ If any of that rings true, agent-duet is for you.
 
 ## agent-duet turns all this into something you can see
 
-It separates an agent's output into **three voices**, each in its place:
+It separates an agent's output into **three kinds of content**, each in its place:
 
-- 🎵 **Melody** — the formal reply to you (rendered as a paper card; collapsed state shows just the heading outline)
-- 🌙 **Murmur** — its thinking (tucked into a collapsible "backstage" block)
-- 🔧 **Action** — every tool call (terminal style, input and output clearly shown)
+- 💬 **Formal reply** — the agent's answer to you (rendered as a paper card; collapsed state shows just the heading outline)
+- 💭 **Thinking** — its reasoning (tucked into a collapsible "backstage" block)
+- 🔧 **Tool calls** — every operation (terminal style, input and output clearly shown)
 
 And every session gets a **dossier**: which directory, what topic, how many turns,
 which files were touched — find it again in a second.
@@ -48,7 +48,7 @@ which files were touched — find it again in a second.
 | Feature | What it does |
 |---|---|
 | 🔍 Session dossier | Search by topic, group by directory — no more lost sessions |
-| 🎼 Multi-voice view | Reply / thinking / tools separated — goodbye waterfall |
+| 🎼 Layered view | Reply / thinking / tools shown in layers — goodbye waterfall |
 | 🔐 Live authorization | Guided mode prompts an authorization card for every write, with approve/deny/timeout permanently recorded |
 | 📊 Playbill | Intent + thinking count + tool count + duration per turn |
 | 🌿 Git awareness | Branch and changed files shown live — see what the agent touched |
@@ -80,8 +80,9 @@ context (mode switcher / Git status / playbill).
 ## Why "agent-duet"
 
 The name comes from the "Bicameral Mind" — an ancient mind with one chamber that
-speaks and one that listens. Today's agents are in that phase: one voice sings to
-you, another murmurs to itself. agent-duet separates the two into a score you can read.
+speaks and one that listens. Today's agents are in that phase: one part talks to
+you, another part reasons internally. agent-duet separates the dialogue from the
+reasoning, making both visible.
 
 ## Where we want to go
 
