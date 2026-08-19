@@ -1,3 +1,9 @@
+<div align="center">
+
+[中文](README.md) | [English](README.en.md)
+
+</div>
+
 # agent-duet
 
 > 你和 agent 的二重唱 —— 把瀑布流变成分声部的乐谱。
