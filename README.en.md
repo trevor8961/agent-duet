@@ -6,24 +6,55 @@
 
 # agent-duet
 
-> A duet between you and your agent — turning the waterfall into a scored, multi-voice piece.
-
-agent-duet is a **local, self-hosted agent workspace**: it presents an agent's
-thinking, tool calls, and final replies in a structured, separated way — and keeps
-a dossier for every session and a record for every authorization.
+> A duet between you and your agent — make the agent's work visible for the first time.
 
 ![Session view](docs/images/session.png)
 
-## What it solves
+## You've probably been here before
 
-| Pain point | agent-duet's answer |
+**Started a long session, then lost it.**
+Which directory was it in? Where did we leave off? After a restart, no amount of
+history scrolling brings it back — because "time + directory + topic" was never
+structured and recorded.
+
+**Staring at the terminal waterfall, thinking: what is it even doing?**
+In one reply, the agent's formal answer, its muttering, the commands it ran, the
+files it read — all jumbled into one stream. You can't find the point, and you
+can't easily review what it thought or did.
+
+**It's taking action, and nobody asked you.**
+Auto mode edits files directly, manual mode confirms every step, plan mode
+proposes first — radically different behaviors that look identical in the
+terminal.
+
+**Switching agents feels like switching worlds.**
+claude code, pi… each speaks its own language, with no single place to unify them.
+
+If any of that rings true, agent-duet is for you.
+
+## agent-duet turns all this into something you can see
+
+It separates an agent's output into **three voices**, each in its place:
+
+- 🎵 **Melody** — the formal reply to you (rendered as a paper card; collapsed state shows just the heading outline)
+- 🌙 **Murmur** — its thinking (tucked into a collapsible "backstage" block)
+- 🔧 **Action** — every tool call (terminal style, input and output clearly shown)
+
+And every session gets a **dossier**: which directory, what topic, how many turns,
+which files were touched — find it again in a second.
+
+## Features
+
+| Feature | What it does |
 |---|---|
-| Long sessions — forget which directory they were in | Every session gets a dossier: directory + topic + status, searchable |
-| Terminal waterfall = low information density | Multi-voice view: melody (reply) / murmur (thinking) / action (tools) separated |
-| Different modes presented identically | Mode-aware: in guided mode every write prompts an authorization card, with approve/deny/timeout permanently recorded |
-| Fragmented across agents | Profile system: adding a new agent = one profile + one adapter |
+| 🔍 Session dossier | Search by topic, group by directory — no more lost sessions |
+| 🎼 Multi-voice view | Reply / thinking / tools separated — goodbye waterfall |
+| 🔐 Live authorization | Guided mode prompts an authorization card for every write, with approve/deny/timeout permanently recorded |
+| 📊 Playbill | Intent + thinking count + tool count + duration per turn |
+| 🌿 Git awareness | Branch and changed files shown live — see what the agent touched |
+| 🧩 Multi-agent ready | Profile system — adding an agent is one config entry |
 
-## Quick start
+## Run in 30 seconds
 
 ```bash
 # macOS / Linux / WSL
@@ -34,8 +65,8 @@ a dossier for every session and a record for every authorization.
 ```
 
 First run installs dependencies automatically; afterwards it starts both servers
-and opens the browser (**http://localhost:5173**). Stop with `./scripts/stop.sh` /
-`.\scripts\stop.ps1`.
+and opens the browser. **Prerequisites**: Python 3.12+ (uv), Node 18+, and a
+working `claude` CLI.
 
 See [Getting started](docs/getting-started.md).
 
@@ -43,28 +74,21 @@ See [Getting started](docs/getting-started.md).
 
 ![Home](docs/images/home.png)
 
-Three-column layout:
+Three columns: **left** session list, **center** the conversation, **right** session
+context (mode switcher / Git status / playbill).
 
-- **Left**: session list (search by title, grouped by directory, current session highlighted)
-- **Center**: the conversation — your prompt, the backstage work (collapsed), the final reply (paper card)
-- **Right**: session context — mode switcher, basic info, Git status, playbill (Requests)
+## Why "agent-duet"
 
-## Core concepts
+The name comes from the "Bicameral Mind" — an ancient mind with one chamber that
+speaks and one that listens. Today's agents are in that phase: one voice sings to
+you, another murmurs to itself. agent-duet separates the two into a score you can read.
 
-- **Duet / three voices**: an agent's output has three layers — what it says to you
-  (melody), what it thinks to itself (murmur), what it does (action). agent-duet keeps them apart.
-- **Raw-first**: every turn's raw event stream is saved (`data/raw/`); derived data is
-  computed on read, so any future need can be satisfied by replay.
-- **Authorization as data**: every approve/deny/timeout is a structured record,
-  attached to its tool call.
-- **Transaction status vs interaction outcome**: completed / incomplete / failed /
-  terminated describe the task; approved / denied / timed out describe each authorization. Orthogonal.
+## Where we want to go
 
-## Vision
-
-The ultimate consumer of structured session data isn't just you — it's the agent itself.
-Through offline "meditation" over its own thinking chains and failures, an agent distills
-and maintains its own working norms — moving from being constrained to self-constraining.
+The ultimate consumer of structured session data isn't just you — it's the agent
+itself. Through offline "meditation" over its own thinking chains and failures, an
+agent can distill and maintain its own working norms — moving from being
+constrained to self-constraining.
 
 ## Docs
 
