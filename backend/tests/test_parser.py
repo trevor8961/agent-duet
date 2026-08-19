@@ -101,3 +101,21 @@ def test_raw_lines_all_json_or_skipped(name):
     """不变量：五个实况样本逐行解析，要么产出有效事件、要么显式跳过，永不抛异常。"""
     result = parse(f"{name}.jsonl")
     assert result.messages  # 每个样本都至少有产出
+
+
+def test_empty_blocks_skipped():
+    """场景：真实数据形态——空思考块 {"text": ""}（turn8 seq72 实测）。
+
+    期望：不产出空消息（否则前端渲染出空纸卡）。
+    """
+    lines = [
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "thinking", "thinking": "有内容的思考"},
+            {"type": "thinking", "thinking": ""},
+            {"type": "text", "text": ""},
+            {"type": "text", "text": "正文"},
+        ]}}),
+    ]
+    result = pm.parse_stream(lines)
+    texts = [json.loads(m.content)["text"] for m in result.messages]
+    assert texts == ["有内容的思考", "正文"]  # 空块全部被过滤

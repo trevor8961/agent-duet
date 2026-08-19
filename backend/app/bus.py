@@ -28,14 +28,15 @@ class EventBus:
             self._cond(session_id).notify_all()
             return event["id"]
 
-    async def subscribe(self, session_id: int, cursor: int = -1):
-        """从 cursor+1 起持续产出事件，直到 turn_done（含）。
+    async def subscribe(self, session_id: int, cursor: int | None = None):
+        """持续产出事件，直到 turn_done（含）。
 
-        先补发历史（含 turn_done 则立即结束——重连已完成 turn 的场景），
-        再等新事件。生成器由消费方 break/close 终止。
+        cursor=None（首次订阅）：只看实时流，不回放历史——回放会把旧的
+        turn_done 一并重发，前端误收后立即停表断流（假死 bug 的根因）。
+        cursor=n（断线重连，带 Last-Event-ID）：从 n+1 补发错过的事件。
         """
         events = self._events.get(session_id, [])
-        idx = cursor + 1
+        idx = (cursor + 1) if cursor is not None else len(events)
         # 先吐已有的
         while idx < len(events):
             yield events[idx]

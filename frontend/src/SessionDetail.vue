@@ -17,13 +17,6 @@ const emit = defineEmits(["back", "loaded"]);
 const API = "/api";
 const detail = ref(null);
 const flowEl = ref(null);
-const bsEls = {}; // 幕后块 DOM 引用（回到开头用）
-
-function bsToTop(turnId) {
-  // 滚动对话流，让该幕后块的标题条回到视口顶部
-  const el = bsEls[turnId]?.closest(".backstage");
-  el?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
 
 // 新内容到达时贴底（对话界面的基本礼仪：跟着最新走）
 async function stickToBottom() {
@@ -65,6 +58,34 @@ function replyOpen(m) {
 function turnDenied(turnId) {
   const t = detail.value?.turns?.find((x) => x.id === turnId);
   return t?.status === "denied";
+}
+
+// 幕后行卡的展开状态（内存态：会话内保持，刷新回默认折叠）
+const bkOpenMap = ref({});
+function bkOpen(seq) { return !!bkOpenMap.value[seq]; }
+function toggleBk(seq) { bkOpenMap.value = { ...bkOpenMap.value, [seq]: !bkOpenMap.value[seq] }; }
+
+function bkIcon(kind) {
+  return { thinking: "💭", narration: "🗣", tool: "🔧" }[kind] ?? "·";
+}
+
+function bkToolLabel(payload) {
+  return `${payload.tool} · ${payload.input?.description || "…"}`;
+}
+
+function bkPreview(item) {
+  const text = item.kind === "tool" ? bkToolLabel(item.payload)
+    : (parseContent(item.m).text ?? "").split("\n").map((l) => l.trim()).filter(Boolean)[0] || "";
+  return text.replace(/[#*`>|]/g, "").slice(0, 70);
+}
+
+function turnStatusOf(turnId) {
+  const t = (detail.value?.turns ?? []).find((x) => x.id === turnId);
+  return t?.status;
+}
+
+function turnAbnormal(turnId) {
+  return ["denied", "error", "cancelled"].includes(turnStatusOf(turnId));
 }
 
 function turnFailed(turnId) {
@@ -153,7 +174,7 @@ function groupMessages(messages) {
         if (m.role === "user" && m.channel === "text") userText = m;
         else if (m.channel === "text" && m.role === "assistant" && m.seq !== lastTextSeq) backstage.push({ kind: "narration", seq: m.seq, m });
         else if (m.channel === "text" && m.role === "assistant") replies.push(m);
-        else if (m.channel === "thinking") backstage.push({ kind: "thinking", seq: m.seq, m });
+        else if (m.channel === "thinking" && (parseContent(m).text || "").trim()) backstage.push({ kind: "thinking", seq: m.seq, m });
         else if (m.channel === "tool_use") {
           const payload = parseContent(m);
           const result = turn.raw.find(
@@ -166,7 +187,7 @@ function groupMessages(messages) {
       const live = turn.id === "__live__";
       const t = live ? null : (detail.value?.turns ?? []).find((x) => x.id === turn.id);
       return {
-        userText, backstage, replies,
+        id: turn.id, userText, backstage, replies,
         thinkCount: backstage.filter((b) => b.kind === "thinking").length,
         toolCount: backstage.filter((b) => b.kind === "tool").length,
         narrationCount: backstage.filter((b) => b.kind === "narration").length,
@@ -273,8 +294,8 @@ async function cancel() {
 onMounted(async () => {
   await load();
   await stickToBottom();
-  // 刷新/中途进入正在运行的会话：接上实时流
-  if (detail.value?.status === "running") subscribe();
+  // 刷新/中途进入正在运行的会话：接上实时流 + 启动计时（否则状态条停在 0s）
+  if (detail.value?.status === "running") { startWorking(); subscribe(); }
 });
 onUnmounted(() => { es?.close(); stopWorking(); });
 </script>
@@ -295,54 +316,62 @@ onUnmounted(() => { es?.close(); stopWorking(); });
       <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
         <!-- 用户输入 + 轮次动作（授权/重试） -->
         <div v-if="turn.userText" class="user-row">
-          <span v-if="turnDenied(turn.id)" class="denied-hint">{{ t('deniedHint') }}</span>
-          <button v-if="turnDenied(turn.id)" class="grant"
-            :class="{ granted: turnGranted(turn.id) }"
-            :disabled="turnGranted(turn.id) || running"
-            @click="grantAndContinue(turn.id)">
-            {{ turnGranted(turn.id) ? '✓ ' + t('granted') : '🔓 ' + t('grant') }}
-          </button>
-          <button v-if="turnFailed(turn.id)" class="retry"
+          <div class="bubble user">{{ parseContent(turn.userText).text }}</div>
+        </div>
+
+        <!-- 轮次状态行：状态与动作同处（单一事实来源）；正常完成不显示 -->
+        <div v-if="turn.userText && turnAbnormal(turn.id)" class="turn-status" :data-st="turnGranted(turn.id) ? 'granted' : turnStatusOf(turn.id)">
+          <span class="ts-label">
+            <template v-if="turnGranted(turn.id)">✓ {{ t('granted') }}</template>
+            <template v-else>{{ turnStatusOf(turn.id) === 'denied' ? '✕' : turnStatusOf(turn.id) === 'cancelled' ? '—' : '✕' }} {{ statusText(turnStatusOf(turn.id)) }}</template>
+          </span>
+          <button v-if="turnDenied(turn.id) && !turnGranted(turn.id)" class="ts-action grant"
+            :disabled="running" @click="grantAndContinue(turn.id)">🔓 {{ t('grant') }}</button>
+          <button v-else-if="turnFailed(turn.id) && !turnGranted(turn.id)"
             :class="{ used: retriedTurns.has(turn.id) }"
             :disabled="retriedTurns.has(turn.id) || running"
             @click="retryTurn(turn.id)">↻ {{ retriedTurns.has(turn.id) ? t('retried') : t('retry') }}</button>
-          <div class="bubble user">{{ parseContent(turn.userText).text }}</div>
         </div>
 
         <!-- 幕后收纳：思考+工具统一进灰色折叠块，折叠态只显三要素 -->
         <details v-if="turn.backstage.length" class="backstage" :open="running && ti === groupMessages(detail.messages).length - 1">
           <summary>
-            <span class="bs-status" :data-st="turn.status">{{ statusText(turn.status || 'done') }}</span>
             <span class="bs-count">💭 ×{{ turn.thinkCount }}</span>
             <span class="bs-count">🔧 ×{{ turn.toolCount }}</span>
             <span v-if="turn.narrationCount" class="bs-count">🗣 ×{{ turn.narrationCount }}</span>
           </summary>
-          <div class="bs-body" :ref="(el) => (bsEls[turn.id] = el)">
-            <template v-for="item in turn.backstage" :key="item.seq">
-              <details v-if="item.kind === 'narration'" class="thinking narration">
-                <summary>🗣 {{ t("narration") }}</summary>
-                <div class="thinking-body" v-html="renderMarkdown(parseContent(item.m).text)"></div>
-              </details>
-              <details v-if="item.kind === 'thinking'" class="thinking">
-                <summary>💭 {{ t("thinking") }}</summary>
-                <div class="thinking-body" v-html="renderMarkdown(parseContent(item.m).text)"></div>
-              </details>
-              <details v-else-if="item.kind === 'tool'" class="tool">
-                <summary>🔧 {{ toolTitle(item.payload) }}</summary>
-                <div class="term">
-                  <div class="term-bar"><i></i><i></i><i></i><span>{{ item.payload.tool }}</span></div>
-                  <pre v-if="toolCommand(item.payload)" class="term-io">$ {{ toolCommand(item.payload) }}</pre>
-                  <pre v-else class="term-io">$ {{ item.payload.tool }} {{ JSON.stringify(item.payload.input) }}</pre>
-                  <pre v-if="item.result" class="term-io" :data-err="parseContent(item.result).is_error">{{ parseContent(item.result).content }}</pre>
-                </div>
-              </details>
-            </template>
+          <div class="bs-body">
+            <div v-for="item in turn.backstage" :key="item.seq" class="bk-card paper" :class="{ narration: item.kind === 'narration' }">
+              <!-- 旁白：直接展示，无折叠 -->
+              <div v-if="item.kind === 'narration'" class="bk-text narration-text">
+                🗣 <span v-html="renderMarkdown(parseContent(item.m).text)"></span>
+              </div>
+              <template v-else>
+              <div class="reply-top">
+                <span class="bk-label" :title="bkPreview(item)">
+                  {{ bkIcon(item.kind) }} {{ item.kind === 'tool' ? bkToolLabel(item.payload) : bkPreview(item) }}
+                </span>
+                <button class="reply-toggle" @click.stop="toggleBk(item.seq)">
+                  {{ bkOpen(item.seq) ? t("collapse") : t("expand") }}
+                </button>
+              </div>
+              <!-- 思考：纸上斜体批注 -->
+              <div v-if="bkOpen(item.seq) && item.kind === 'thinking'" class="bk-text italic"
+                v-html="renderMarkdown(parseContent(item.m).text)"></div>
+              <!-- 工具：纸上的黑终端 -->
+              <div v-if="bkOpen(item.seq) && item.kind === 'tool'" class="term">
+                <div class="term-bar"><i></i><i></i><i></i><span>{{ item.payload.tool }}</span></div>
+                <pre v-if="toolCommand(item.payload)" class="term-io">$ {{ toolCommand(item.payload) }}</pre>
+                <pre v-else class="term-io">$ {{ item.payload.tool }} {{ JSON.stringify(item.payload.input) }}</pre>
+                <pre v-if="item.result" class="term-io" :data-err="parseContent(item.result).is_error">{{ parseContent(item.result).content }}</pre>
+              </div>
+              </template>
+            </div>
           </div>
-          <button v-if="turn.backstage.length > 3" class="bs-top" @click="bsToTop(turn.id)">↑ {{ t("backToTop") }}</button>
         </details>
 
         <!-- 主旋律：回复纸卡 -->
-        <div v-for="m in turn.replies" :key="m.seq" class="reply-card" :class="{ collapsed: !replyOpen(m) }">
+        <div v-for="m in turn.replies" :key="m.seq" class="reply-card paper" :class="{ collapsed: !replyOpen(m) }">
           <div class="reply-top">
             <span class="reply-label">{{ t("replied") }}</span>
             <button class="reply-toggle" @click.stop="onReplyToggle(m, { target: { open: !replyOpen(m) } })">
@@ -387,6 +416,19 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .flow > * { flex-shrink: 0; } /* 纵向 flex 子项默认可压缩：内容超高时 widget 被压扁（"时隐时现"的根因） */
 .empty { color: var(--text-faint); text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
+.turn-status { align-self: flex-start; display: flex; align-items: center; gap: 12px;
+  padding: 5px 14px; border-radius: 8px; font-size: 14px; margin-top: -2px; }
+.turn-status[data-st="denied"] { background: rgb(185 138 74 / 10%); }
+.turn-status[data-st="denied"] .ts-label { color: #b98a4a; font-weight: 600; }
+.turn-status[data-st="error"] { background: rgb(197 68 68 / 8%); }
+.turn-status[data-st="error"] .ts-label { color: #c54444; font-weight: 600; }
+.turn-status[data-st="cancelled"] { background: var(--surface); }
+.turn-status[data-st="cancelled"] .ts-label { color: var(--text-faint); }
+.turn-status[data-st="granted"] .ts-label { color: #4a9e5c; font-weight: 600; }
+.ts-action { padding: 3px 12px; border-radius: 99px; cursor: pointer; font-size: 14px;
+  border: 1px solid #b98a4a; background: rgb(185 138 74 / 12%); color: #b98a4a; }
+.ts-action:hover:not(:disabled) { background: rgb(185 138 74 / 25%); }
+.ts-action.used, .ts-action:disabled { opacity: .45; cursor: default; }
 .user-row { align-self: flex-end; display: flex; align-items: center; gap: 8px; max-width: 86%; }
 .user-row .bubble.user { background: #2b5387; color: #fff; max-width: none; flex: 1; min-width: 0; }
 .retry { padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim); cursor: pointer; font-size: 14px; flex-shrink: 0; }
@@ -400,8 +442,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bubble.agent { align-self: flex-start; background: #1e2227; border: 1px solid #2c313a; }
 .bubble pre { margin: 0; font-family: inherit; white-space: pre-wrap; }
 .reply { align-self: flex-start; width: fit-content; max-width: 86%; min-width: 160px; }
-.reply-card { position: relative; background: var(--paper-bg, #fdfdfc); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 16px 12px; max-width: 86%; width: fit-content; min-width: 200px;
+.reply-card.paper { position: relative; padding: 10px 16px 12px; max-width: 86%; width: fit-content; min-width: 200px;
   display: flex; flex-direction: column; }
 .reply-card.collapsed { cursor: pointer; }
 .reply-card.collapsed:hover { border-color: var(--border-2); }
@@ -421,7 +462,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .reply .bubble { margin-top: 4px; }
 /* ---- Hekouwang Markdown 移植（huiyonghkw/hekouwang-typora-theme，token 原样提取）----
    纸卡永远亮色（纸的隐喻），暗色主题下是舞台上的纸；亮色主题加投影分层 */
-.reply-card { /* 纸卡容器：token 见 .reply-full */ }
+.paper { background: #fdfdfc; border: 1px solid var(--border); border-radius: 10px; }
 .reply-full.md, .bubble.agent.md {
   --paper-bg: #fdfdfc;
   --paper-sunken: #f5f4ed;
@@ -493,7 +534,16 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-dim);
   cursor: pointer; font-size: 14px; }
 .bs-top:hover { color: var(--text); border-color: var(--accent); }
-.bs-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 14px 10px; }
+.bs-body { display: flex; flex-direction: column; gap: 8px; padding: 6px 14px 12px; }
+.bk-card { padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+.bk-card.narration { padding: 8px 14px; background: var(--surface); border-style: dashed; }
+.narration-text { color: var(--text-dim); font-size: 15px; line-height: 1.6; }
+.narration-text :deep(p) { margin: .2rem 0; display: inline; }
+.bk-label { color: var(--text); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-text { color: var(--text); padding: 4px 10px; }
+.bk-text.italic { font-style: italic; color: var(--text-dim); }
+.bk-text :deep(p) { margin: .25rem 0; }
+.bk-text.italic :deep(strong) { font-style: normal; color: var(--text); }
 .narration summary { color: #8a9aa0; }
 .thinking { align-self: flex-start; font-size: 14px; color: #8a7f6f; max-width: 90%; }
 .thinking summary { cursor: pointer; color: #6f6a5f; }

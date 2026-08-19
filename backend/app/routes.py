@@ -172,7 +172,8 @@ def register_routes(app):
         """
 
         async def gen():
-            cursor = int(last_event_id) if last_event_id is not None else -1
+            # 只有客户端带 Last-Event-ID（断线重连）才回放历史；首次订阅只看实时
+            cursor = int(last_event_id) if last_event_id is not None else None
             async for ev in bus.subscribe(sid, cursor):
                 payload = json.dumps({"id": ev["id"], "kind": ev["kind"], "ts": ev["ts"], "data": ev["data"]})
                 yield f"id: {ev['id']}\nevent: {ev['kind']}\ndata: {payload}\n\n"

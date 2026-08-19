@@ -62,16 +62,19 @@ def parse_stream(lines: list[str]) -> ParseResult:
             # 一条 assistant 事件的 content 是块数组，逐块翻译（分声部的落点）
             for block in event.get("message", {}).get("content", []):
                 btype = block.get("type")
+                # 空思考块是真实存在的形态（实测 L4b/turn8 seq72 等）：无信息，跳过
                 if btype == "thinking":
-                    result.messages.append(
-                        ParsedMessage(role="assistant", channel="thinking",
-                                      content=json.dumps({"text": block.get("thinking", "")}, ensure_ascii=False))
-                    )
+                    if (block.get("thinking") or "").strip():
+                        result.messages.append(
+                            ParsedMessage(role="assistant", channel="thinking",
+                                          content=json.dumps({"text": block.get("thinking", "")}, ensure_ascii=False))
+                        )
                 elif btype == "text":
-                    result.messages.append(
-                        ParsedMessage(role="assistant", channel="text",
-                                      content=json.dumps({"text": block.get("text", "")}, ensure_ascii=False))
-                    )
+                    if (block.get("text") or "").strip():
+                        result.messages.append(
+                            ParsedMessage(role="assistant", channel="text",
+                                          content=json.dumps({"text": block.get("text", "")}, ensure_ascii=False))
+                        )
                 elif btype == "tool_use":
                     result.messages.append(
                         ParsedMessage(role="assistant", channel="tool_use",

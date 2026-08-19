@@ -74,9 +74,11 @@ async def test_sse_replay_from_cursor(client, tmp_path):
     sid = await _setup_and_fire(client, tmp_path)
     await client.post(f"/api/sessions/{sid}/messages", json={"text": "hi"})
 
-    # 第一段：只消费前几条就断开
+    # 第一段：显式带 Last-Event-ID=-1 请求全量回放，只消费前几条就断开
+    # （默认订阅已改为只看实时流——回放是重连专属语义）
     first_batch = []
-    async with client.stream("GET", f"/api/sessions/{sid}/events") as resp:
+    async with client.stream("GET", f"/api/sessions/{sid}/events",
+                             headers={"Last-Event-ID": "-1"}) as resp:
         async for line in resp.aiter_lines():
             if line.startswith("id: "):
                 first_batch.append(int(line[4:]))
