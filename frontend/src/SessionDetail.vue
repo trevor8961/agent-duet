@@ -17,6 +17,16 @@ const emit = defineEmits(["back", "loaded"]);
 const API = "/api";
 const detail = ref(null);
 const flowEl = ref(null);
+const taEl = ref(null);
+
+// 输入框自适应增高：内容超 min 高时随内容增长，上限 1/3 视口高，再超则框内滚动
+function autoResize() {
+  const el = taEl.value;
+  if (!el) return;
+  el.style.height = "auto";
+  const max = Math.floor(window.innerHeight / 3);
+  el.style.height = Math.min(el.scrollHeight, max) + "px";
+}
 
 // 新内容到达时贴底（对话界面的基本礼仪：跟着最新走）
 async function stickToBottom() {
@@ -154,14 +164,14 @@ async function grantAndContinue(turnId) {
   startWorking();
   detail.value?.messages.push({
     seq: 9e9 - 1, role: "system", channel: "text",
-    content: JSON.stringify({ text: "🔓 已授权（autonomous）重新执行" }), turn_id: -1,
+    content: JSON.stringify({ text: "🔓 " + t("grantedAndRetrying") }), turn_id: -1,
   });
   stickToBottom();
   subscribe();
   await fetch(`${API}/sessions/${props.id}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: "继续执行刚才被拒的文件操作", mode_override: "autonomous", granted_from: turnId }),
+    body: JSON.stringify({ text: t("grantPrompt"), mode_override: "autonomous", granted_from: turnId }),
   });
 }
 
@@ -329,6 +339,7 @@ async function send() {
   if (!detail.value) await load(); // HMR/加载竞态兜底：没有详情就先拉
   if (!detail.value) return;
   input.value = "";
+  nextTick(autoResize);
   running.value = true;
   startWorking();
   detail.value?.messages.push({
@@ -356,22 +367,27 @@ onMounted(async () => {
   if (detail.value?.status === "running") { startWorking(); subscribe(); }
 });
 onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
+
+// 节目单点击定位：滚动对话流到对应轮次（App 通过 ref 调用）
+function scrollToTurn(turnId) {
+  const el = flowEl.value?.querySelector(`[data-turn-id="${turnId}"]`);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+defineExpose({ scrollToTurn });
 </script>
 
 <template>
   <div class="wrap" v-if="detail">
     <header>
-      <strong>{{ detail.title }}</strong>
-      <span class="badge" :data-status="detail.status">{{ statusText(detail.status) }}</span>
-      <code class="cwd">{{ detail.cwd }}</code>
-      <span class="mode">{{ detail.mode }}</span>
+      <strong class="detail-title">{{ detail.title }}</strong>
     </header>
 
     <div class="flow" ref="flowEl">
       <div v-if="!detail.messages.length" class="empty">
         {{ t('emptyFlow') }}
       </div>
-      <template v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti">
+      <div v-for="(turn, ti) in groupMessages(detail.messages)" :key="ti" class="turn-group" :data-turn-id="turn.id">
         <!-- 用户输入 + 轮次动作（授权/重试） -->
         <div v-if="turn.userText" class="user-row">
           <div class="bubble user">{{ parseContent(turn.userText).text }}</div>
@@ -459,11 +475,12 @@ onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
             </div>
           </div>
         </div>
-      </template>
+      </div>
       <div v-if="running" class="working">
         <span class="pulse"></span>
         <span>{{ t('working') }} · {{ elapsed }}s</span>
         <span v-if="thinkingTokens" class="tk">💭 {{ thinkingTokens }} tokens</span>
+        <button class="stop-inline" @click="cancel">{{ t('stop') }}</button>
       </div>
     </div>
 
@@ -481,10 +498,8 @@ onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
     </div>
 
     <footer>
-      <textarea v-model="input" :disabled="running" :placeholder="t('inputPh')"
-        @keydown="onKeydown"></textarea>
-      <button v-if="running" class="danger" @click="cancel">{{ t("stop") }}</button>
-      <button v-else class="primary" @click="send" :disabled="!input.trim()">{{ t("send") }}</button>
+      <textarea ref="taEl" v-model="input" :disabled="running" :placeholder="t('inputPh')"
+        @keydown="onKeydown" @input="autoResize"></textarea>
     </footer>
   </div>
 </template>
@@ -492,6 +507,7 @@ onUnmounted(() => { es?.close(); stopWorking(); stopPermTimer(); });
 <style scoped>
 .wrap { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; height: 100%; }
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.detail-title { font-size: 17px; font-weight: 700; color: var(--text); }
 .cwd { color: var(--text-faint); font-size: 14px; }
 .mode { color: var(--text-faint); font-size: 14px; border: 1px solid var(--border-2); padding: 1px 8px; border-radius: 99px; }
 .badge { font-size: 14px; padding: 2px 8px; border-radius: 99px; background: #263; color: #9f9; }
@@ -499,6 +515,7 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .badge[data-status="error"] { background: #411; color: #f99; }
 .badge[data-status="cancelled"] { background: #234; color: #99f; }
 .flow { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; }
+.turn-group { display: flex; flex-direction: column; gap: 8px; } /* 包一层便于定位，内部 gap 与 flow 一致，视觉不变 */
 .flow > * { flex-shrink: 0; } /* 纵向 flex 子项默认可压缩：内容超高时 widget 被压扁（"时隐时现"的根因） */
 .empty { color: var(--text-faint); text-align: center; padding: 40px; }
 .bubble { padding: 10px 14px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
@@ -538,14 +555,14 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .reply-card.collapsed { cursor: pointer; }
 .reply-card.collapsed:hover { border-color: var(--border-2); }
 .reply-top { display: flex; align-items: center; justify-content: space-between; }
-.reply-label { color: var(--text-dim); font-size: 15px; font-weight: 600; }
+.reply-label { color: var(--paper-muted); font-size: 15px; font-weight: 600; }
 .reply-toggle { padding: 2px 12px; border-radius: 99px;
-  border: 1px solid var(--border-2); background: var(--surface); color: var(--text-faint);
+  border: 1px solid var(--paper-hairline); background: var(--paper-sunken); color: var(--paper-muted);
   cursor: pointer; font-size: 14px; }
-.reply-toggle:hover { color: var(--text); border-color: var(--accent); }
-.reply-full { color: var(--text); border: none; background: transparent; padding: 0; }
-.reply-outline .outline-item { color: var(--text); font-weight: 600; font-size: 15px; line-height: 1.7; }
-.reply-outline .outline-item:not(:first-child) { font-weight: 400; color: var(--text-dim); }
+.reply-toggle:hover { color: var(--paper-ink); border-color: var(--paper-accent); }
+.reply-full { color: var(--paper-ink); border: none; background: transparent; padding: 0; }
+.reply-outline .outline-item { color: var(--paper-ink); font-weight: 600; font-size: 15px; line-height: 1.7; }
+.reply-outline .outline-item:not(:first-child) { font-weight: 400; color: var(--paper-muted); }
 .reply-head::-webkit-details-marker { display: none; }
 .reply-head::before { content: "▸ "; }
 .reply[open] > .reply-head::before { content: "▾ "; }
@@ -553,7 +570,18 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .reply .bubble { margin-top: 4px; }
 /* ---- Hekouwang Markdown 移植（huiyonghkw/hekouwang-typora-theme，token 原样提取）----
    纸卡永远亮色（纸的隐喻），暗色主题下是舞台上的纸；亮色主题加投影分层 */
-.paper { background: #fdfdfc; border: 1px solid var(--border); border-radius: 10px; }
+.paper { background: #fdfdfc; border: 1px solid var(--border); border-radius: 10px;
+  color: #141413; /* 纸上的墨色，不随主题——纸永远亮色 */
+  --paper-ink: #141413;
+  --paper-soft: #3d3d3a;
+  --paper-muted: #73726c;
+  --paper-accent: #d97757;
+  --paper-link: #c05d3c;
+  --paper-code: #8a5a3c;
+  --paper-sunken: #f5f4ed;
+  --paper-hairline: rgb(31 30 29 / 12%);
+  --paper-line: rgb(31 30 29 / 14%);
+  --paper-divider: rgb(31 30 29 / 20%); }
 .reply-full.md, .bubble.agent.md {
   --paper-bg: #fdfdfc;
   --paper-sunken: #f5f4ed;
@@ -605,8 +633,8 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .md :deep(ul), .md :deep(ol) { margin: .25rem 0; padding-left: 1.4rem; }
 .md :deep(li) { margin: 0; line-height: 1.65; }
 .md :deep(img) { max-width: 100%; border-radius: 10px; }
-.backstage { align-self: flex-start; max-width: 90%; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+.backstage { align-self: flex-start; max-width: 90%; background: var(--surface-2);
+  border: 1px solid var(--border-2); border-radius: 10px; overflow: hidden;
   display: flex; flex-direction: column; width: fit-content; min-width: 220px; }
 .backstage[open] { width: min(90%, 860px); }  /* 折叠时窄条，展开后放宽给终端输出空间 */
 /* details 上设 display:flex 会破坏其关闭态的原生隐藏（Chromium 坑），显式补回 */
@@ -627,17 +655,17 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .bs-top:hover { color: var(--text); border-color: var(--accent); }
 .bs-body { display: flex; flex-direction: column; gap: 8px; padding: 6px 14px 12px; }
 .bk-card { padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
-.bk-card.narration { padding: 8px 14px; background: var(--surface); border-style: dashed; }
+.bk-card.narration { padding: 8px 14px; background: var(--surface); border-style: dashed; color: var(--text-dim); }
 .narration-text { color: var(--text-dim); font-size: 15px; line-height: 1.6; }
 .narration-text :deep(p) { margin: .2rem 0; display: inline; }
-.bk-label { color: var(--text); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-label { color: var(--paper-ink); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .perm-badge { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .perm-badge[data-st="approved"] { color: #4a9e5c; }
 .perm-badge[data-st="denied"] { color: #c54444; }
 .perm-badge[data-st="timeout"] { color: #b98a4a; }
-.bk-text { color: var(--text); padding: 4px 10px; }
-.bk-text.italic { font-style: italic; color: var(--text-dim); }
+.bk-text { color: var(--paper-soft); padding: 4px 10px; }
+.bk-text.italic { font-style: italic; color: var(--paper-muted); }
 .bk-text :deep(p) { margin: .25rem 0; }
 .bk-text.italic :deep(strong) { font-style: normal; color: var(--text); }
 .narration summary { color: #8a9aa0; }
@@ -672,7 +700,12 @@ header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .perm-deny { padding: 4px 16px; border-radius: 99px; border: 1px solid #c54444; background: rgb(197 68 68 / 12%); color: #c54444; cursor: pointer; font-size: 14px; }
 .perm-allow { padding: 4px 16px; border-radius: 99px; border: 1px solid #4a9e5c; background: rgb(74 158 92 / 15%); color: #4a9e5c; cursor: pointer; font-size: 14px; }
 footer { display: flex; gap: 8px; margin-top: 12px; }
-textarea { flex: 1; height: 64px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text); resize: none; font-family: inherit; }
+.stop-inline { margin-left: auto; padding: 3px 14px; border-radius: 99px; border: 1px solid #c54444;
+  background: rgb(197 68 68 / 12%); color: #c54444; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+.stop-inline:hover { background: rgb(197 68 68 / 22%); }
+textarea { flex: 1; min-height: 96px; max-height: 33vh; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border-2); background: var(--input-bg); color: var(--text);
+  resize: none; font-family: inherit; line-height: 1.5; overflow-y: auto; }
 button { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--border); color: var(--text); cursor: pointer; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { background: #7a2b2b; border-color: #7a2b2b; color: #fff; }

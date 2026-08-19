@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { t } from "./i18n";
 
-defineProps({ s: Object });
+defineProps({ s: Object, active: Boolean });
 const emit = defineEmits(["open", "delete"]);
 
 const confirmDelete = ref(null);
@@ -19,7 +19,7 @@ function fmtTime(raw) {
 </script>
 
 <template>
-  <div class="card" @click="confirmDelete === s.id || emit('open', s.id)">
+  <div class="card" :class="{ active }" @click="confirmDelete === s.id || emit('open', s.id)">
     <div class="row1">
       <span class="label">{{ s.title }}</span>
       <button v-if="confirmDelete !== s.id" class="del" :title="t('delete')"
@@ -42,7 +42,8 @@ function fmtTime(raw) {
 </template>
 
 <style scoped>
-.card { position: relative; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.card { position: relative; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, box-shadow .15s; }
+.card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 2px 10px rgb(0 0 0 / 18%); background: var(--surface-2); }
 .card:hover { border-color: var(--border-2); }
 .card:hover .del { visibility: visible; }
 .del { visibility: hidden; flex-shrink: 0; padding: 2px 6px; border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 14px; border-radius: 4px; }

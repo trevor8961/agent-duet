@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import LeftNav from "./LeftNav.vue";
 import SessionDetail from "./SessionDetail.vue";
 import ContextPanel from "./ContextPanel.vue";
+import TopNav from "./TopNav.vue";
 import { t } from "./i18n";
 
 const currentId = ref(null);
@@ -11,6 +12,11 @@ const showCreate = ref(false);
 const agents = ref([]);
 const form = ref({ title: "", cwd: "", agent_id: null, mode: "guided" });
 const leftNav = ref(null);
+const detailRef = ref(null);
+
+function locateTurn(turnId) {
+  detailRef.value?.scrollToTurn(turnId);
+}
 
 // 侧栏宽度（左右两栏同款机制）：可拖拽，持久化，上限各为视口 1/3
 const ctxWidth = ref(Math.min(Number(localStorage.getItem("ad-ctx-width")) || 300, Math.floor(window.innerWidth / 3)));
@@ -93,12 +99,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="shell">
-    <LeftNav ref="leftNav" :style="{ width: navWidth + 'px' }" @open="openSession" @create="showCreate = true" />
+  <div class="app">
+    <TopNav />
+    <div class="shell">
+    <LeftNav ref="leftNav" :active-id="currentId" :style="{ width: navWidth + 'px' }" @open="openSession" @create="showCreate = true" />
     <div class="divider" :class="{ dragging }" @mousedown="startNavDrag" title="拖拽调整宽度"></div>
 
     <main class="center">
-      <SessionDetail v-if="currentId" :id="currentId" @loaded="onLoaded" />
+      <!-- :key 强制 id 变化时重挂载，否则 onMounted 的 load 不重跑、内容停在旧会话 -->
+      <SessionDetail v-if="currentId" ref="detailRef" :key="currentId" :id="currentId" @loaded="onLoaded" />
       <div v-else class="home">
         <h1>agent-duet</h1>
         <p class="sub">{{ t("homeSub") }}</p>
@@ -108,7 +117,7 @@ onMounted(async () => {
 
     <template v-if="currentId">
       <div class="divider" :class="{ dragging }" @mousedown="startCtxDrag" title="拖拽调整宽度"></div>
-      <ContextPanel :id="currentId" :detail="detail" :style="{ width: ctxWidth + 'px' }" />
+      <ContextPanel :id="currentId" :detail="detail" :style="{ width: ctxWidth + 'px' }" @locate="locateTurn" />
     </template>
 
     <div v-if="showCreate" class="modal" @click.self="showCreate = false">
@@ -132,11 +141,13 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.shell { display: flex; height: 100vh; overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.shell { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .divider { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; transition: background .15s; }
 .divider:hover, .divider.dragging { background: var(--accent); }
 .center { flex: 1; min-width: 0; display: flex; }

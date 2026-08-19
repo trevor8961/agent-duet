@@ -4,6 +4,7 @@ import { t, intentLabel } from "./i18n";
 import Block from "./Block.vue";
 
 const props = defineProps({ id: Number, detail: Object });
+const emit = defineEmits(["locate"]);
 
 const MODES = [
   { value: "readonly", key: "modeReadonly" },
@@ -17,32 +18,31 @@ const git = ref(null);
 
 const showChanges = ref(false); // 变更列表默认折叠，只显示计数
 
-const openBlocks = ref(
-  new Set(JSON.parse(localStorage.getItem("ad-ctx-blocks") || '["mode","info","git","turns"]'))
-);
 async function loadGit() {
   try {
     git.value = await (await fetch(`/api/sessions/${props.id}/git`)).json();
   } catch { /* 面板信息缺失不致命 */ }
 }
 
-// 活动摘要：从 messages 的 tool_use 聚合动过的文件与命令
-function activity(detail) {
-  const files = new Set();
-  const commands = [];
-  let toolCount = 0;
-  for (const m of detail.messages ?? []) {
-    if (m.channel !== "tool_use") continue;
-    toolCount++;
-    try {
-      const p = JSON.parse(m.content);
-      const input = p.input ?? {};
-      if (input.file_path) files.add(input.file_path);
-      if (input.command) commands.push({ tool: p.tool, cmd: input.command.split("\n")[0].slice(0, 60) });
-      else commands.push({ tool: p.tool, cmd: Object.keys(input).slice(0, 3).join(",") || "…" });
-    } catch { /* 坏数据跳过 */ }
+// 每轮的思考/工具次数（从 messages 数，数据驱动）
+function turnCounts(turnId) {
+  let think = 0, tool = 0;
+  for (const m of props.detail?.messages ?? []) {
+    if (m.turn_id !== turnId) continue;
+    if (m.channel === "thinking") think++;
+    else if (m.channel === "tool_use") tool++;
   }
-  return { files: [...files], commands: commands.slice(-12), toolCount };
+  return { think, tool };
+}
+
+// 智能耗时：<1min 显秒，>=1min 显分秒
+function fmtDuration(ms) {
+  if (ms == null) return "";
+  const s = ms / 1000;
+  if (s < 60) return s.toFixed(1) + "s";
+  const m = Math.floor(s / 60);
+  const r = Math.round(s % 60);
+  return m + "m" + r + "s";
 }
 
 const STATUS_KEYS = { denied: "stDenied", error: "stError", cancelled: "stCancelled", done: "stDone", running: "stRunning" };
@@ -69,7 +69,7 @@ watch(() => props.detail?.messages?.length, loadGit);
 <template>
   <aside class="ctx" v-if="detail">
     <!-- 模式：可操作，置顶 -->
-    <Block :title="t('mode')" block-key="ctx-mode">
+    <Block :title="t('mode')" block-key="ctx-mode" static>
       <div>
         <div class="mode-row">
           <span class="mode-label">{{ t("currentMode") }}</span>
@@ -81,7 +81,7 @@ watch(() => props.detail?.messages?.length, loadGit);
     </Block>
 
     <!-- 基本信息 -->
-    <Block :title="t('basicInfo')" block-key="ctx-info">
+    <Block :title="t('basicInfo')" block-key="ctx-info" static>
       <div class="body">
         <div class="kv"><span>{{ t("topicShort") }}</span><b>{{ detail.title }}</b></div>
         <div class="kv"><span>{{ t("cwdShort") }}</span><code :title="detail.cwd">{{ detail.cwd }}</code></div>
@@ -91,7 +91,7 @@ watch(() => props.detail?.messages?.length, loadGit);
     </Block>
 
     <!-- 工作区 -->
-    <Block :title="t('workspace')" block-key="ctx-git">
+    <Block :title="t('git')" block-key="ctx-git" static :class="{ 'git-off': git && !git.is_repo }">
       <div class="body">
         <template v-if="git?.is_repo">
           <div class="kv"><span>{{ t("branch") }}</span><b class="branch">{{ git.branch }}</b></div>
@@ -117,30 +117,18 @@ watch(() => props.detail?.messages?.length, loadGit);
     </Block>
 
     <!-- 节目单 -->
-    <Block :title="`${t('playbill')} · ${detail.turns.length} ${t('rounds')}`" block-key="ctx-turns">
+    <Block :title="`${t('playbill')} · ${detail.turns.length} ${t('rounds')}`" block-key="ctx-turns" static>
       <div class="body scroll-list">
-        <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status">
+        <div v-for="t in detail.turns" :key="t.id" class="turn" :data-status="t.status" @click="emit('locate', t.id)">
           <span class="intent">{{ intentLabel(t.intent) }}</span>
           <span class="t-status">{{ statusText(t.status) }}</span>
-          <span class="t-meta" v-if="t.duration_ms">{{ (t.duration_ms / 1000).toFixed(1) }}s</span>
-          <span class="t-meta" v-if="t.total_cost_usd">${{ t.total_cost_usd.toFixed(2) }}</span>
+          <span class="t-count">💭{{ turnCounts(t.id).think }} 🔧{{ turnCounts(t.id).tool }}</span>
+          <span class="t-meta" v-if="t.duration_ms">{{ fmtDuration(t.duration_ms) }}</span>
         </div>
         <div v-if="!detail.turns.length" class="none">{{ t("noTurns") }}</div>
       </div>
     </Block>
 
-    <!-- 活动 -->
-    <Block :title="`${t('activity')} · ${activity(detail).toolCount} ${t('toolCalls')}`" block-key="ctx-activity" :default-open="false">
-      <div class="body">
-        <div v-if="activity(detail).files.length" class="files">
-          <code v-for="f in activity(detail).files" :key="f" :title="f">{{ f.split("/").pop() }}</code>
-        </div>
-        <div class="cmds scroll-list">
-          <div v-for="(c, i) in activity(detail).commands" :key="i" class="cmd">$ {{ c.cmd }}</div>
-        </div>
-        <div v-if="!activity(detail).toolCount" class="none">{{ t("noActivity") }}</div>
-      </div>
-    </Block>
   </aside>
 </template>
 
@@ -194,12 +182,14 @@ watch(() => props.detail?.messages?.length, loadGit);
 .chg[data-st="D"] i { background: rgb(197 68 68 / 25%); color: #c54444; }
 .more { color: var(--text-faint); font-size: 14px; }
 
-.turn { display: flex; align-items: center; gap: 6px; font-size: 14px; padding: 4px 6px; border-radius: 6px; }
+.turn { display: flex; align-items: center; gap: 6px; font-size: 14px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
 .turn:hover { background: var(--hover); }
 .intent { color: #b89a5e; }
 .t-status { color: var(--text-faint); font-size: 14px; }
+.t-count { color: var(--text-dim); font-size: 14px; }
 .t-meta { margin-left: auto; color: var(--text-faint); font-size: 14px; }
 .none { color: var(--text-faint); font-size: 14px; padding: 6px; }
+.git-off { opacity: 0.5; }
 
 .files { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .files code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 14px; color: var(--text-dim); }
