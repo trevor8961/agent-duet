@@ -9,12 +9,12 @@ info() { printf '\033[1;34m[agent-duet]\033[0m %s\n' "$1"; }
 
 # 按 PID 文件停（更精准）
 for name in frontend backend; do
-  pidfile="$RUN_DIR/$name.pid"
+  pidfile="$RUN_DIR/${name}.pid"
   if [ -f "$pidfile" ]; then
     pid="$(cat "$pidfile")"
     if kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
-      info "已停止 $name（pid $pid）"
+      info "已停止 ${name}（pid ${pid}）"
     fi
     rm -f "$pidfile"
   fi
