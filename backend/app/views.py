@@ -5,6 +5,7 @@ loader 由框架自动批处理，N+1 免疫（tests/test_read_api.py 有 SQL �
 """
 
 import json
+import subprocess
 from typing import Optional
 
 from pydantic import BaseModel
@@ -85,6 +86,7 @@ class SessionListItem(BaseModel):
     stats: dict = {}  # loader 一次批量取回的聚合数据
     message_count: int = 0
     last_preview: str = ""
+    branch: str | None = None
 
     def resolve_stats(self, loader=Loader(session_stats_loader)):
         return loader.load(self.id)
@@ -94,6 +96,20 @@ class SessionListItem(BaseModel):
 
     def post_last_preview(self):
         return self.stats.get("last_preview", "")
+
+
+_branch_cache: dict[str, str | None] = {}  # cwd -> branch（会话列表高频读，按目录缓存）
+
+
+def _git_branch(cwd: str) -> str | None:
+    if cwd not in _branch_cache:
+        try:
+            r = subprocess.run(["git", "branch", "--show-current"], cwd=cwd,
+                               capture_output=True, text=True, timeout=5)
+            _branch_cache[cwd] = r.stdout.strip() or None
+        except Exception:
+            _branch_cache[cwd] = None
+    return _branch_cache[cwd]
 
 
 async def list_sessions(q: str | None = None) -> list[SessionListItem]:
@@ -110,6 +126,8 @@ async def list_sessions(q: str | None = None) -> list[SessionListItem]:
             )
             for s in rows
         ]
+    for it in items:  # 分支信息平铺进字段（非 loader：按 cwd 缓存后近似零成本）
+        it.branch = _git_branch(next(r.cwd for r in rows if r.id == it.id))
     return await Resolver().resolve(items)
 
 

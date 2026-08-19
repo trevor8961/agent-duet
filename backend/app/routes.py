@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from .bus import bus
-from .db import SessionLocal
+from .db import DATA_DIR, SessionLocal
 from .models import Agent, Message, Session, Turn
 from .views import get_session_detail, list_sessions
 from .runner import DEFAULT_INTENT, _cancel_flags, _running, build_command, execute_turn
@@ -77,6 +77,25 @@ def register_routes(app):
             db.add(s)
             await db.commit()
             return {"id": s.id, "title": s.title, "mode": s.mode}
+
+    @app.delete("/api/sessions/{sid}")
+    async def delete_session(sid: int):
+        """级联删除：session + turns + messages + raw 留档目录。"""
+        import shutil
+
+        from sqlalchemy import delete as sa_delete
+
+        async with SessionLocal() as db:
+            s = await db.get(Session, sid)
+            if not s:
+                raise HTTPException(404)
+            await db.execute(sa_delete(Message).where(Message.session_id == sid))
+            await db.execute(sa_delete(Turn).where(Turn.session_id == sid))
+            await db.delete(s)
+            await db.commit()
+        raw_dir = DATA_DIR / "raw" / str(sid)
+        shutil.rmtree(raw_dir, ignore_errors=True)
+        return {"ok": True}
 
     @app.get("/api/sessions")
     async def get_sessions(q: str | None = None):

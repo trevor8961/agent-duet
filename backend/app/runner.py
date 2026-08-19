@@ -108,6 +108,11 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
             session = await db.get(Session, session_id)
             session.status = "cancelled"
             await db.commit()
+        from datetime import datetime
+
+        session = await db.get(Session, session_id)
+        session.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        await db.commit()
         await bus.publish(session_id, "turn_done", {"turn_id": turn_id, "status": "cancelled"})
         return
 
@@ -150,6 +155,12 @@ async def execute_turn(session_id: int, turn_id: int, prompt: str, cmd: list[str
         turn.duration_ms = result.duration_ms
         turn.raw_path = str(raw_path)
 
+        # 收尾刷新 updated_at（之前从未更新过——列表页 created/updated 恒相等的根因）
+        from datetime import datetime
+
+        session = await db.get(Session, session_id)
+        session.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        await db.commit()
         await bus.publish(session_id, "turn_done", {"turn_id": turn_id, "status": status})
 
         if status == "error":
